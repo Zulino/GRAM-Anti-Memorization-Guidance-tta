@@ -9,7 +9,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 
 from .utils import prepare_audio
 from .sampling import sample_rf
-from .my_sampling import my_sample_k, make_cond_model_fn
+from .amg_sampling import my_sample_k, make_cond_model_fn
 
 import os, sys, json
 import matplotlib.pyplot as plt

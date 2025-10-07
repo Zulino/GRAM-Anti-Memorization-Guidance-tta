@@ -1,15 +1,15 @@
 # Mitigating data replication in text-to-audio generative diffusion models through anti-memorization guidance
 [![arXiv](https://img.shields.io/badge/arXiv-Paper-<COLOR>.svg)](https://arxiv.org/abs/2509.14934) *Francisco Messina, Francesca Ronchini, Luca Comanducci, Paolo Bestagini, Fabio Antonacci*
 
-This repository contains the code used in the paper *[Mitigating data replication in text-to-audio generative diffusion models through anti-memorization guidance](https://arxiv.org/abs/2509.14934)*. It builds on Stability AI’s Stable Audio Open 1.0 and adds *Anti-Memorization Guidance (AMG)* during sampling. The main entry point for generation is `my_infer.py`.
+This repository contains the code used in the paper *[Mitigating data replication in text-to-audio generative diffusion models through anti-memorization guidance](https://arxiv.org/abs/2509.14934)*. It builds on Stability AI’s Stable Audio Open 1.0 and adds *Anti-Memorization Guidance (AMG)* during sampling. The main entry point for generation is `amg_infer.py`.
 
 References to the paper and base model are at the end of this document.
 
 ## Quick overview
 
 - Goal: Generate audio from text prompts while discouraging replication of training data via AMG.
-- Core script: `my_infer.py` (configure guidance and scheduling, then run).
-- Internal hook: `stable_audio_tools/inference/my_generation.py` implements custom sampling and loads precomputed CLAP embeddings from `embeddings_new.json`.
+- Core script: `amg_infer.py` (configure guidance and scheduling, then run).
+- Internal hook: `stable_audio_tools/inference/amg_generation.py` implements custom sampling and loads precomputed CLAP embeddings from `embeddings_new.json`.
 
 ## 1) Environment setup (conda)
 
@@ -33,14 +33,14 @@ AMG relies on CLAP audio/text embeddings. You have two options:
 	 - Or follow the official CLAP repo instructions.
 
 2) Use a local CLAP clone and adjust the import path.
-	 - In `stable_audio_tools/inference/my_generation.py` there’s a small section near the top that modifies `sys.path` to point to a local CLAP checkout (e.g., `CLAP/src`).
+	 - In `stable_audio_tools/inference/amg_generation.py` there’s a small section near the top that modifies `sys.path` to point to a local CLAP checkout (e.g., `CLAP/src`).
 	 - If you don’t have a local copy, remove that relocation block or change it to the correct path in your setup to avoid “module not found” errors.
 
 If you hit CLAP import issues, first try option (1) and remove the `sys.path` relocation.
 
 ## 3) Precomputed dataset embeddings (embeddings_new.json)
 
-`my_generation.py` loads `embeddings_new.json`, which contains precomputed CLAP embeddings for the Stable Audio Open dataset. These are used by the AMG term during denoising.
+`amg_generation.py` loads `embeddings_new.json`, which contains precomputed CLAP embeddings for the Stable Audio Open dataset. These are used by the AMG term during denoising.
 
 - You may add more entries manually using the same JSON format and the default CLAP checkpoint to compute embeddings.
 - To see which audio IDs were used in the dataset and their sources, consult the Stable Audio Open 1.0 card (CSV references to Freesound):
@@ -81,7 +81,7 @@ Open `my_infer.py` and set your parameters:
 Then run:
 
 ```bash
-python my_infer.py
+python amg_infer.py
 ```
 
 The script will save a waveform to `audio.wav` in the repository root by default.
@@ -90,17 +90,17 @@ The script will save a waveform to `audio.wav` in the repository root by default
 
 - Loads Stable Audio Open 1.0 via `get_pretrained_model("stabilityai/stable-audio-open-1.0")`.
 - Configures sampling with the parameters you specify.
-- Calls `my_generate_diffusion_cond(...)` in `my_generation.py`, which:
+- Calls `my_generate_diffusion_cond(...)` in `amg_generation.py`, which:
 	- Loads CLAP embeddings from `embeddings_new.json`.
 	- Applies AMG guided denoising using `c1, c2, c3` and `lambda_min/lambda_max`.
 	- Returns the generated audio.
 
 ## 5) Troubleshooting
 
-- CLAP import errors: Remove or adjust the CLAP `sys.path` override in `my_generation.py`, or install CLAP via pip.
+- CLAP import errors: Remove or adjust the CLAP `sys.path` override in `amg_generation.py`, or install CLAP via pip.
 - Torchaudio/Torch ABI mismatch: Ensure `torch` and `torchaudio` versions match (e.g., reinstall both from the same CUDA/CPU channel or wheel index).
 - CUDA OOM: Lower `denoising_steps`, reduce `total_duration`, or run on CPU (slow).
-- No output / silent audio: Check `sigma_min/sigma_max` and `cfg_scale` are reasonable. Start with the defaults in `my_infer.py`.
+- No output / silent audio: Check `sigma_min/sigma_max` and `cfg_scale` are reasonable. Start with the defaults in `amg_infer.py`.
 
 ## 6) Data and licensing
 
@@ -145,5 +145,5 @@ Stable Audio Open:
 
 ---
 
-For questions or reproducibility details (e.g., exact `c1/c2/c3` and scheduling configurations used for the paper experiments), you can inspect `my_infer.py` in this repository, the AMG logic within `stable_audio_tools/inference/my_generation.py`, and the reference paper.
+For questions or reproducibility details (e.g., exact `c1/c2/c3` and scheduling configurations used for the paper experiments), you can inspect `amg_infer.py` in this repository, the AMG logic within `stable_audio_tools/inference/amg_generation.py`, and the reference paper.
 
