@@ -1,7 +1,7 @@
 import torch
 import os
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
-os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
+#os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
 import torchaudio
 from einops import rearrange
 from stable_audio_tools import get_pretrained_model
@@ -10,19 +10,22 @@ from stable_audio_tools.inference.amg_generation import my_generate_diffusion_co
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
 # Download model
-model, model_config = get_pretrained_model("stabilityai/stable-audio-open-1.0")
+model, model_config = get_pretrained_model("stabilityai/stable-audio-open-1.0", )
 sample_rate = model_config["sample_rate"]
 sample_size = model_config["sample_size"]
 
+# Enable float16 and move model to device
+#model.half()
 model = model.to(device)
+#model.pretransform.to("cpu", dtype=torch.float32)
 
 # Ensure output directory exists, and skip saving if the file already exists
 audio_dir = "./"
 os.makedirs(audio_dir, exist_ok=True)
 audio_path = os.path.join(audio_dir, "audio.wav")
 
-total_duration = 10.0  # seconds
-cfg_scale = 7
+total_duration = 1.0  # seconds
+cfg_scale = 0
 c1 = 4
 c2 = 3
 c3 = 100

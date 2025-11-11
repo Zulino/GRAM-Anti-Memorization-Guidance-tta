@@ -7,7 +7,7 @@ import torch
 import torch.nn.functional as F
 from torch import nn, einsum
 from torch.amp import autocast
-from torch.nn.utils.parametrizations import weight_norm
+from torch.nn.utils import weight_norm
 from typing import Callable, Literal
 
 from .utils import compile
