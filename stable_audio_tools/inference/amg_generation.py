@@ -73,6 +73,8 @@ def my_generate_diffusion_cond(
         c3=5.0,
         c_gram =0.0,
         gram_radius=1.0,
+        gram_start_step=0,
+        gram_use_normalized=True,
         lambda_min=0.4,
         lambda_max=0.5,
         **sampler_kwargs
@@ -164,6 +166,7 @@ def my_generate_diffusion_cond(
         # Clap init
         CLAP = laion_clap.CLAP_Module(enable_fusion=False, device=device)
         CLAP.load_ckpt()
+        CLAP.eval()
         # CLAP tokenizer
         e_prompt = CLAP.get_text_embedding([conditioning[0]["prompt"]])
         e_prompt = e_prompt[0]
@@ -171,11 +174,40 @@ def my_generate_diffusion_cond(
         ####
         base_denoiser = K.external.VDenoiser(model.model)
         #despec_fn     = make_despec_fn(base_denoiser, e_prompt, s0=cfg_scale, c1=c1, c2=c2, c3=c3, lambda_min=lambda_min, lambda_max=lambda_max, CLAP=CLAP, device=device, length=effective_audio_length, model=model)
-        despec_fn = make_despec_fn(base_denoiser, e_prompt, s0=cfg_scale, c1=c1, c2=c2, c3=c3, c_gram=c_gram, gram_radius=gram_radius, lambda_min=lambda_min, lambda_max=lambda_max, CLAP=CLAP, device=device, length=effective_audio_length, model=model)
+        despec_fn = make_despec_fn(
+            base_denoiser,
+            e_prompt,
+            s0=cfg_scale,
+            c1=c1,
+            c2=c2,
+            c3=c3,
+            c_gram=c_gram,
+            gram_radius=gram_radius,
+            gram_start_step=gram_start_step,
+            gram_use_normalized=gram_use_normalized,
+            lambda_min=lambda_min,
+            lambda_max=lambda_max,
+            CLAP=CLAP,
+            device=device,
+            length=effective_audio_length,
+            model=model,
+        )
         guided = make_cond_model_fn(base_denoiser, despec_fn, conditioning_inputs, negative_conditioning_tensors)
         ####
 
-        sampled = my_sample_k(guided, noise, init_audio, steps, **sampler_kwargs, **conditioning_inputs, **negative_conditioning_tensors, cfg_scale=cfg_scale, batch_cfg=False, device=device)
+        sampled = my_sample_k(
+            guided,
+            noise,
+            init_audio,
+            steps,
+            **sampler_kwargs,
+            **conditioning_inputs,
+            **negative_conditioning_tensors,
+            cfg_scale=cfg_scale,
+            batch_cfg=False,
+            device=device,
+            noise_seed=seed,
+        )
 
     elif diff_objective == "rectified_flow":
 
@@ -236,10 +268,32 @@ emb_matrix  = torch.stack([
     for sound_id in ids
 ], dim=0).cuda("cuda:1")  # → (N, D)
 
-def make_despec_fn(base_model_fn, e_prompt, s0=7.5, c1=5.0, c2=5.0, c3=5.0, c_gram=0.0, gram_radius=0.5, lambda_min=0.4, lambda_max=0.5, CLAP=None, device="cuda:1", length=2097152, model=None):
+def make_despec_fn(
+        base_model_fn,
+        e_prompt,
+        s0=7.5,
+        c1=5.0,
+        c2=5.0,
+        c3=5.0,
+        c_gram=0.0,
+        gram_radius=0.5,
+        gram_start_step=0,
+        gram_use_normalized=True,
+        lambda_min=0.4,
+        lambda_max=0.5,
+        CLAP=None,
+        device="cuda:1",
+        length=2097152,
+        model=None):
     """Return a cond_fn that applies AMG‐despecification at each step."""
+    neighbor_embeddings_cache = None
+    cached_radius = None
+    cached_min_dist = None
+    step_counter = 0
+
     def despec_cond_fn(x, sigma, denoised,
                        conditioning_inputs, negative_conditioning_inputs, **_):
+        nonlocal neighbor_embeddings_cache, cached_radius, cached_min_dist, step_counter
         x.requires_grad_(True)
         # Unconditional and conditional x0 predictions (VDenoiser outputs x0)
         x0_uncond = denoised  # shape [B,C,L]
@@ -316,22 +370,35 @@ def make_despec_fn(base_model_fn, e_prompt, s0=7.5, c1=5.0, c2=5.0, c3=5.0, c_gr
         G_gram = torch.zeros_like(x0_cond) # Inizializza a zero
         total_gram_loss = 0.0
         
-        if c_gram > 0:
+        enable_gram_guidance = c_gram > 0 and step_counter >= gram_start_step
+        if enable_gram_guidance:
             print(f"\n--- [DEBUG STEP] Sigma: {sigma.item():.2f} ---")
 
-            with torch.no_grad():
-                e_t_detached = e_t.detach()
-                dists_to_et = torch.linalg.norm(emb_matrix - e_t_detached.unsqueeze(0), dim=1)
-                neighbor_indices = torch.where(dists_to_et < gram_radius)[0]
-                K = neighbor_indices.numel()
+            if neighbor_embeddings_cache is None:
+                with torch.no_grad():
+                    e_t_detached = e_t.detach()
+                    dists_to_et = torch.linalg.norm(emb_matrix - e_t_detached.unsqueeze(0), dim=1)
+                    neighbor_indices = torch.where(dists_to_et < gram_radius)[0]
 
-                print(f"[DEBUG] Min dist to e_t: {dists_to_et.min().item():.4f} | K (neighbors in radius): {K}")
+                if neighbor_indices.numel() > 0:
+                    neighbor_embeddings_cache = emb_matrix[neighbor_indices]
+                    cached_radius = gram_radius
+                    cached_min_dist = dists_to_et.min().item()
+                    print(f"[DEBUG] Cached {neighbor_indices.numel()} neighbors (r={cached_radius}) | min dist {cached_min_dist:.4f}")
+                else:
+                    neighbor_embeddings_cache = None
+                    print("[DEBUG] No neighbors found for Gram guidance; skipping cache.")
 
-            if K > 0:
-                neighbor_embeddings = emb_matrix[neighbor_indices]
-                e_t_norm = F.normalize(e_t, p=2, dim=0)
-                neighbors_norm = F.normalize(neighbor_embeddings, p=2, dim=1)
-                A = torch.cat([e_t_norm.unsqueeze(0), neighbors_norm], dim=0)
+            if neighbor_embeddings_cache is not None:
+                neighbor_embeddings = neighbor_embeddings_cache
+                if gram_use_normalized:
+                    e_t_for_volume = F.normalize(e_t, p=2, dim=0)
+                    neighbors_for_volume = F.normalize(neighbor_embeddings, p=2, dim=1)
+                else:
+                    e_t_for_volume = e_t
+                    neighbors_for_volume = neighbor_embeddings
+
+                A = torch.cat([e_t_for_volume.unsqueeze(0), neighbors_for_volume], dim=0)
                 log_volume = generalized_gram_volume(A, return_log=True) 
 
                 if log_volume is not None:
@@ -341,7 +408,7 @@ def make_despec_fn(base_model_fn, e_prompt, s0=7.5, c1=5.0, c2=5.0, c3=5.0, c_gr
                 else:
                     print("[DEBUG] Volume computation failed (None).")
             else:
-                print("[DEBUG] No neighbors found.")
+                print("[DEBUG] Gram guidance enabled but neighbor cache empty; skip volume.")
              # Questo blocco è sicuro perché total_gram_loss è sempre definito
             if total_gram_loss != 0.0:
                 try:
@@ -366,6 +433,8 @@ def make_despec_fn(base_model_fn, e_prompt, s0=7.5, c1=5.0, c2=5.0, c3=5.0, c_gr
 
         additional = G_spe + G_dedup + G_sim + G_gram
         #additional = G_spe + G_dedup + G_sim
+        step_counter += 1
+
         print(f"[DEBUG S: {sigma.item():>6.2f}] NORMS || "
                 f"G_cfg: {G_cfg.norm().item():.2f} | "
                 f"G_spe: {G_spe.norm().item():.2f} | "

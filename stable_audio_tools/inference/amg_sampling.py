@@ -37,6 +37,7 @@ def my_sample_k(
         rho=1.0, 
         device="cuda", 
         callback=None, 
+        noise_seed=None,
         **extra_args
     ):
 
@@ -61,7 +62,7 @@ def my_sample_k(
         if sampler_type == "dpmpp-3m-sde":
             return K.sampling.sample_dpmpp_3m_sde(denoiser, x, sigmas, disable=False, callback=callback, extra_args=extra_args)
         elif sampler_type == "my-dpmpp-3m-sde":
-            return my_sample_dpmpp_3m_sde(denoiser, x, sigmas, disable=False, callback=callback, extra_args=extra_args)
+            return my_sample_dpmpp_3m_sde(denoiser, x, sigmas, disable=False, callback=callback, extra_args=extra_args, noise_seed=noise_seed)
     else:
         raise ValueError(f"Unknown sampler type {sampler_type}")
 
@@ -117,11 +118,11 @@ class BrownianTreeNoiseSampler:
         return self.tree(t0, t1) / (t1 - t0).abs().sqrt()
 
 @torch.no_grad()
-def my_sample_dpmpp_3m_sde(model, x, sigmas, extra_args=None, callback=None, disable=None, eta=1., s_noise=1., noise_sampler=None):
+def my_sample_dpmpp_3m_sde(model, x, sigmas, extra_args=None, callback=None, disable=None, eta=1., s_noise=1., noise_sampler=None, noise_seed=None):
     """DPM-Solver++(3M) SDE."""
 
     sigma_min, sigma_max = sigmas[sigmas > 0].min(), sigmas.max()
-    noise_sampler = BrownianTreeNoiseSampler(x, sigma_min, sigma_max) if noise_sampler is None else noise_sampler
+    noise_sampler = BrownianTreeNoiseSampler(x, sigma_min, sigma_max, seed=noise_seed) if noise_sampler is None else noise_sampler
     extra_args = {} if extra_args is None else extra_args
     s_in = x.new_ones([x.shape[0]])
 

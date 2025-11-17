@@ -1,6 +1,9 @@
 import torch
 import os
+import random
+import numpy as np
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
+os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
 #os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
 import torchaudio
 import torch.nn.functional as F
@@ -11,6 +14,15 @@ from stable_audio_tools.inference.amg_generation import my_generate_diffusion_co
 
 
 device = "cuda:1" if torch.cuda.is_available() else "cpu"
+seed = 42
+random.seed(seed)
+np.random.seed(seed)
+torch.manual_seed(seed)
+if torch.cuda.is_available():
+    torch.cuda.manual_seed_all(seed)
+
+torch.backends.cudnn.deterministic = True
+torch.use_deterministic_algorithms(True, warn_only=True)
 
 # Download model
 model, model_config = get_pretrained_model("stabilityai/stable-audio-open-1.0", )
@@ -29,10 +41,10 @@ audio_path = os.path.join(audio_dir, "audio.wav")
 
 total_duration = 1.7143310657596371  # seconds
 cfg_scale = 7
-c1 = 4
-c2 = 3
-c3 = 100
-c_gram = 100.0
+c1 = 0
+c2 = 0
+c3 = 0
+c_gram = 1000.0
 lambda_min = 0.7
 lambda_max = 0.8
 denoising_steps = 100
@@ -68,8 +80,11 @@ output = my_generate_diffusion_cond(
     c2=c2,
     c3=c3,
     c_gram=c_gram,
+    gram_start_step=20,
+    gram_use_normalized=False,
     lambda_min=lambda_min,
     lambda_max=lambda_max,
+    seed=seed,
 )
 
 # Rearrange audio batch to a single sequence

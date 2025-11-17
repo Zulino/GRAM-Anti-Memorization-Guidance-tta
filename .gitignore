@@ -161,7 +161,9 @@ cython_debug/
 
 *.ckpt
 *.wav
+*.tmp
 wandb/*
 huggingface_token.txt
 *.png
 *.pdf630k-audioset-best.ptag_w_klm.tmp
+*.tmp
