@@ -13,6 +13,7 @@ from .amg_sampling import my_sample_k, make_cond_model_fn
 
 import os, sys, json
 import matplotlib.pyplot as plt
+import torch.nn.functional as F
 
 HERE = os.path.dirname(__file__)
 ROOT = os.path.abspath(os.path.join(HERE, '..','..','..'))  
@@ -23,6 +24,32 @@ sys.path.insert(0, LOCAL_CLAP)
 
 # 3) Now import exactly your local code:
 import laion_clap 
+
+def generalized_gram_volume(embeddings, return_log=False):
+    """
+    Compute the parallelotope volume spanned by a set of embeddings.
+    embeddings: Tensor with shape (K+1, D)
+    """
+    # Compute the Gram matrix
+    G = embeddings @ embeddings.T  # Shape (K+1, K+1)
+    
+    # Add a small epsilon to the diagonal for numerical stability
+    # Avoid negative or zero determinants due to precision issues
+    G = G + torch.eye(G.shape[0], device=G.device, dtype=G.dtype) * 1e-6
+    
+    sign, log_det = torch.linalg.slogdet(G)
+    
+    if sign <= 0:
+        # Se il determinante non è positivo, il volume non è calcolabile (vettori linearmente dipendenti)
+        return None
+        
+    # Il volume è la radice quadrata del determinante di Gram
+    log_volume = 0.5 * log_det 
+    print(f"embeddings shape: {embeddings.shape}, Gram log det: {log_det.item():.4f}, Volume: {torch.exp(log_volume).item():.4f}, G shape: {G.shape}")
+    #print(f"embeddings: {embeddings}")
+    if return_log:
+        return log_volume
+    return torch.exp(log_volume)
 
 
 def my_generate_diffusion_cond(
@@ -37,13 +64,15 @@ def my_generate_diffusion_cond(
         sample_size: int = 2097152,
         sample_rate: int = 48000,
         seed: int = -1,
-        device: str = "cuda",
+        device: str = "cuda:1",
         init_audio: tp.Optional[tp.Tuple[int, torch.Tensor]] = None,
         init_noise_level: float = 1.0,
         return_latents = False,
         c1=5.0,
         c2=5.0,
         c3=5.0,
+        c_gram =0.0,
+        gram_radius=1.0,
         lambda_min=0.4,
         lambda_max=0.5,
         **sampler_kwargs
@@ -141,8 +170,9 @@ def my_generate_diffusion_cond(
         
         ####
         base_denoiser = K.external.VDenoiser(model.model)
-        despec_fn     = make_despec_fn(base_denoiser, e_prompt, s0=cfg_scale, c1=c1, c2=c2, c3=c3, lambda_min=lambda_min, lambda_max=lambda_max, CLAP=CLAP, device=device, length=effective_audio_length, model=model)
-        guided        = make_cond_model_fn(base_denoiser, despec_fn, conditioning_inputs, negative_conditioning_tensors)
+        #despec_fn     = make_despec_fn(base_denoiser, e_prompt, s0=cfg_scale, c1=c1, c2=c2, c3=c3, lambda_min=lambda_min, lambda_max=lambda_max, CLAP=CLAP, device=device, length=effective_audio_length, model=model)
+        despec_fn = make_despec_fn(base_denoiser, e_prompt, s0=cfg_scale, c1=c1, c2=c2, c3=c3, c_gram=c_gram, gram_radius=gram_radius, lambda_min=lambda_min, lambda_max=lambda_max, CLAP=CLAP, device=device, length=effective_audio_length, model=model)
+        guided = make_cond_model_fn(base_denoiser, despec_fn, conditioning_inputs, negative_conditioning_tensors)
         ####
 
         sampled = my_sample_k(guided, noise, init_audio, steps, **sampler_kwargs, **conditioning_inputs, **negative_conditioning_tensors, cfg_scale=cfg_scale, batch_cfg=False, device=device)
@@ -204,9 +234,9 @@ emb_matrix  = torch.stack([
     torch.tensor(data[sound_id]['embedding'], 
                 dtype=torch.float32)
     for sound_id in ids
-], dim=0).cuda("cuda")  # → (N, D)
+], dim=0).cuda("cuda:1")  # → (N, D)
 
-def make_despec_fn(base_model_fn, e_prompt, s0=7.5, c1=5.0, c2=5.0, c3=5.0, lambda_min=0.4, lambda_max=0.5, CLAP=None, device="cuda", length=2097152, model=None):
+def make_despec_fn(base_model_fn, e_prompt, s0=7.5, c1=5.0, c2=5.0, c3=5.0, c_gram=0.0, gram_radius=0.5, lambda_min=0.4, lambda_max=0.5, CLAP=None, device="cuda:1", length=2097152, model=None):
     """Return a cond_fn that applies AMG‐despecification at each step."""
     def despec_cond_fn(x, sigma, denoised,
                        conditioning_inputs, negative_conditioning_inputs, **_):
@@ -282,11 +312,67 @@ def make_despec_fn(base_model_fn, e_prompt, s0=7.5, c1=5.0, c2=5.0, c3=5.0, lamb
         G_spe   = -s1 * delta_x0
         G_dedup = -s2 * delta_x0_N
 
+        #GRAM-AMG
+        G_gram = torch.zeros_like(x0_cond) # Inizializza a zero
+        total_gram_loss = 0.0
+        
+        if c_gram > 0:
+            print(f"\n--- [DEBUG STEP] Sigma: {sigma.item():.2f} ---")
+
+            with torch.no_grad():
+                e_t_detached = e_t.detach()
+                dists_to_et = torch.linalg.norm(emb_matrix - e_t_detached.unsqueeze(0), dim=1)
+                neighbor_indices = torch.where(dists_to_et < gram_radius)[0]
+                K = neighbor_indices.numel()
+
+                print(f"[DEBUG] Min dist to e_t: {dists_to_et.min().item():.4f} | K (neighbors in radius): {K}")
+
+            if K > 0:
+                neighbor_embeddings = emb_matrix[neighbor_indices]
+                e_t_norm = F.normalize(e_t, p=2, dim=0)
+                neighbors_norm = F.normalize(neighbor_embeddings, p=2, dim=1)
+                A = torch.cat([e_t_norm.unsqueeze(0), neighbors_norm], dim=0)
+                log_volume = generalized_gram_volume(A, return_log=True) 
+
+                if log_volume is not None:
+                    # Maximize log(volume) -> minimize -log(volume)
+                    total_gram_loss = -log_volume 
+                    print(f"[DEBUG] LogVolume: {log_volume.item():.4f} | Loss: {total_gram_loss.item():.4f}")
+                else:
+                    print("[DEBUG] Volume computation failed (None).")
+            else:
+                print("[DEBUG] No neighbors found.")
+             # Questo blocco è sicuro perché total_gram_loss è sempre definito
+            if total_gram_loss != 0.0:
+                try:
+                    grad_gram_raw = torch.autograd.grad(total_gram_loss, x, retain_graph=True, allow_unused=True)[0]
+                    
+                    if grad_gram_raw is not None:
+                        print(f"[DEBUG] Raw Grad Norm: {grad_gram_raw.norm().item():.4e}")
+ 
+                    # --- FIX 2: AGGIUNTO TORCH.SQRT() ---
+                        G_gram = -c_gram * expand(torch.sqrt(1 - alpha_bar)) * grad_gram_raw
+                    
+                    else:
+                        print("[DEBUG] Grad calc failed (grad_gram_raw is None).")
+ 
+                except RuntimeError as e:
+                    print(f"[DEBUG] Grad calc ERROR: {e}")
+                    pass
+
         # Parabolic gating based on alpha_bar
         lambda_t = lambda_min + (lambda_max - lambda_min) * (alpha_bar ** 2)
         mask = (cos_sim > lambda_t).float().view(-1, *([1] * (G_spe.ndim - 1)))
 
-        additional = G_spe + G_dedup + G_sim
+        additional = G_spe + G_dedup + G_sim + G_gram
+        #additional = G_spe + G_dedup + G_sim
+        print(f"[DEBUG S: {sigma.item():>6.2f}] NORMS || "
+                f"G_cfg: {G_cfg.norm().item():.2f} | "
+                f"G_spe: {G_spe.norm().item():.2f} | "
+                f"G_dedup: {G_dedup.norm().item():.2f} | "
+                f"G_sim: {G_sim.norm().item():.2f} | "
+                f"G_gram: {G_gram.norm().item():.2f} | "
+                f"Additional: {additional.norm().item():.2f} | ")
         return G_cfg + mask * additional
 
     return despec_cond_fn
