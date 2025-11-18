@@ -2,8 +2,30 @@ import torch
 import os
 import random
 import numpy as np
-os.environ["TOKENIZERS_PARALLELISM"] = "false"
+import logging
+from datetime import datetime
+
 os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
+# Create a logs directory if it doesn't exist
+os.makedirs("logs", exist_ok=True)
+
+# Generate a unique log file name with a timestamp
+timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+log_filename = f"logs/inference_{timestamp}.log"
+
+# Set up logging
+logging.basicConfig(
+    level=logging.DEBUG,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    handlers=[
+        logging.FileHandler(log_filename),
+        logging.StreamHandler()
+    ]
+)
+
+logger = logging.getLogger()
+
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
 #os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
 import torchaudio
 import torch.nn.functional as F
@@ -11,6 +33,14 @@ from einops import rearrange
 from stable_audio_tools import get_pretrained_model
 from stable_audio_tools.inference import amg_generation
 from stable_audio_tools.inference.amg_generation import my_generate_diffusion_cond
+import shutil
+
+DEBUG_RUN_ID = 1
+
+debug_dir = f"./debug_run_{DEBUG_RUN_ID}"
+if os.path.exists(debug_dir):
+    shutil.rmtree(debug_dir)
+os.makedirs(debug_dir, exist_ok=True)
 
 
 device = "cuda:1" if torch.cuda.is_available() else "cpu"
@@ -25,10 +55,11 @@ torch.backends.cudnn.deterministic = True
 torch.use_deterministic_algorithms(True, warn_only=True)
 
 # Download model
+logger.info("Loading model...")
 model, model_config = get_pretrained_model("stabilityai/stable-audio-open-1.0", )
 sample_rate = model_config["sample_rate"]
 sample_size = model_config["sample_size"]
-
+logger.info("Model loaded.")
 # Enable float16 and move model to device
 #model.half()
 model = model.to(device)
@@ -64,6 +95,13 @@ negative_conditioning = [{
     "seconds_total": total_duration
 }]
 
+logger.info(f"--- STARTING DEBUG RUN {DEBUG_RUN_ID} ---")
+logger.info(f"Saving debug tensors to: {debug_dir}")
+
+# Get the logger
+logger = logging.getLogger()
+
+logger.info(f"Starting generation with seed: {seed}")
 output = my_generate_diffusion_cond(
     model,
     steps=denoising_steps,
@@ -85,6 +123,7 @@ output = my_generate_diffusion_cond(
     lambda_min=lambda_min,
     lambda_max=lambda_max,
     seed=seed,
+    logger=logger
 )
 
 # Rearrange audio batch to a single sequence
@@ -114,10 +153,11 @@ with torch.no_grad():
     target_embedding = F.normalize(target_embedding, dim=0)
     cosine_sim = torch.dot(generated_embedding, target_embedding).item()
 
-print(f"[INFO] Cosine similarity vs ID 5131: {cosine_sim:.6f}")
+logging.info(f"Cosine similarity vs ID 5131: {cosine_sim:.6f}")
 
 output_to_save = output_normalized.mul(32767).to(torch.int16).cpu()
 
 
 torchaudio.save(audio_path, output_to_save, sample_rate)
-print(f"[INFO] Saved: {audio_path}")
+logging.info(f"Saved: {audio_path}")
+logger.info(f"--- FINISHED DEBUG RUN {DEBUG_RUN_ID} ---")

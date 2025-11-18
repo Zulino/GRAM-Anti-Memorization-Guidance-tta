@@ -6,6 +6,7 @@ import typing as tp
 import k_diffusion as K
 #import CLAP.src.laion_clap as laion_clap
 from sklearn.metrics.pairwise import cosine_similarity
+import logging
 
 from .utils import prepare_audio
 from .sampling import sample_rf
@@ -25,7 +26,7 @@ sys.path.insert(0, LOCAL_CLAP)
 # 3) Now import exactly your local code:
 import laion_clap 
 
-def generalized_gram_volume(embeddings, return_log=False):
+def generalized_gram_volume(embeddings, return_log=False, logger=None):
     """
     Compute the parallelotope volume spanned by a set of embeddings.
     embeddings: Tensor with shape (K+1, D)
@@ -45,7 +46,8 @@ def generalized_gram_volume(embeddings, return_log=False):
         
     # Il volume è la radice quadrata del determinante di Gram
     log_volume = 0.5 * log_det 
-    print(f"embeddings shape: {embeddings.shape}, Gram log det: {log_det.item():.4f}, Volume: {torch.exp(log_volume).item():.4f}, G shape: {G.shape}")
+    if logger is not None:
+        logger.debug(f"[DEBUG] Gram Matrix Sign: {sign}, Log-Determinant: {log_det.item():.4f}")
     #print(f"embeddings: {embeddings}")
     if return_log:
         return log_volume
@@ -77,6 +79,8 @@ def my_generate_diffusion_cond(
         gram_use_normalized=True,
         lambda_min=0.4,
         lambda_max=0.5,
+        logger=None,
+        debug_dir=None,
         **sampler_kwargs
         ) -> torch.Tensor: 
     """
@@ -98,6 +102,11 @@ def my_generate_diffusion_cond(
         return_latents: Whether to return the latents used for generation instead of the decoded audio.
         **sampler_kwargs: Additional keyword arguments to pass to the sampler.    
     """
+
+    if logger is None:
+        logger = logging.getLogger()
+        logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
     
     audio_sample_size = sample_size
     effective_audio_length = int(conditioning[0]["seconds_total"] * sample_rate)
@@ -109,6 +118,7 @@ def my_generate_diffusion_cond(
     # Seed
     # The user can explicitly set the seed to deterministically generate the same output. Otherwise, use a random seed.
     seed = seed if seed != -1 else np.random.randint(0, 2**32 - 1)
+    logger.info(f"Using seed in my_generate_diffusion_cond: {seed}")
     torch.manual_seed(seed)
     # Define the initial noise immediately after setting the seed
     noise = torch.randn([batch_size, model.io_channels, sample_size], device=device)
@@ -193,7 +203,7 @@ def my_generate_diffusion_cond(
             model=model,
         )
         guided = make_cond_model_fn(base_denoiser, despec_fn, conditioning_inputs, negative_conditioning_tensors)
-        ####
+        sampler_kwargs['logger'] = logger
 
         sampled = my_sample_k(
             guided,
@@ -207,6 +217,7 @@ def my_generate_diffusion_cond(
             batch_cfg=False,
             device=device,
             noise_seed=seed,
+            debug_dir=debug_dir
         )
 
     elif diff_objective == "rectified_flow":
@@ -284,8 +295,15 @@ def make_despec_fn(
         CLAP=None,
         device="cuda:1",
         length=2097152,
-        model=None):
+        model=None,
+        logger=None
+    ):
     """Return a cond_fn that applies AMG‐despecification at each step."""
+
+    if logger is None:
+        logger = logging.getLogger()
+        logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
     neighbor_embeddings_cache = None
     cached_radius = None
     cached_min_dist = None
@@ -372,7 +390,7 @@ def make_despec_fn(
         
         enable_gram_guidance = c_gram > 0 and step_counter >= gram_start_step
         if enable_gram_guidance:
-            print(f"\n--- [DEBUG STEP] Sigma: {sigma.item():.2f} ---")
+            logger.debug(f"[DEBUG] Gram guidance enabled at step {step_counter} with c_gram={c_gram}, gram_radius={gram_radius}")
 
             if neighbor_embeddings_cache is None:
                 with torch.no_grad():
@@ -384,10 +402,10 @@ def make_despec_fn(
                     neighbor_embeddings_cache = emb_matrix[neighbor_indices]
                     cached_radius = gram_radius
                     cached_min_dist = dists_to_et.min().item()
-                    print(f"[DEBUG] Cached {neighbor_indices.numel()} neighbors (r={cached_radius}) | min dist {cached_min_dist:.4f}")
+                    logger.debug(f"[DEBUG] Cached {neighbor_embeddings_cache.shape[0]} neighbor embeddings for Gram guidance.")
                 else:
                     neighbor_embeddings_cache = None
-                    print("[DEBUG] No neighbors found for Gram guidance; skipping cache.")
+                    logger.debug("[DEBUG] No neighbors found for Gram guidance; skipping cache.")
 
             if neighbor_embeddings_cache is not None:
                 neighbor_embeddings = neighbor_embeddings_cache
@@ -404,27 +422,27 @@ def make_despec_fn(
                 if log_volume is not None:
                     # Maximize log(volume) -> minimize -log(volume)
                     total_gram_loss = -log_volume 
-                    print(f"[DEBUG] LogVolume: {log_volume.item():.4f} | Loss: {total_gram_loss.item():.4f}")
+                    logger.debug(f"[DEBUG] Gram log-volume: {log_volume.item():.4f}, Total gram loss: {total_gram_loss.item():.4f}")
                 else:
-                    print("[DEBUG] Volume computation failed (None).")
+                    logger.debug("[DEBUG] Volume computation failed (None).")
             else:
-                print("[DEBUG] Gram guidance enabled but neighbor cache empty; skip volume.")
+                logger.debug("[DEBUG] Gram guidance enabled but neighbor cache empty; skip volume.")
              # Questo blocco è sicuro perché total_gram_loss è sempre definito
             if total_gram_loss != 0.0:
                 try:
                     grad_gram_raw = torch.autograd.grad(total_gram_loss, x, retain_graph=True, allow_unused=True)[0]
                     
                     if grad_gram_raw is not None:
-                        print(f"[DEBUG] Raw Grad Norm: {grad_gram_raw.norm().item():.4e}")
+                        logger.debug(f"[DEBUG] Raw Grad Norm: {grad_gram_raw.norm().item():.4e}")
  
                     # --- FIX 2: AGGIUNTO TORCH.SQRT() ---
                         G_gram = -c_gram * expand(torch.sqrt(1 - alpha_bar)) * grad_gram_raw
                     
                     else:
-                        print("[DEBUG] Grad calc failed (grad_gram_raw is None).")
+                        logger.debug("[DEBUG] Grad calc failed (grad_gram_raw is None).")
  
                 except RuntimeError as e:
-                    print(f"[DEBUG] Grad calc ERROR: {e}")
+                    logger.debug(f"[DEBUG] Grad calc ERROR: {e}")
                     pass
 
         # Parabolic gating based on alpha_bar

@@ -4,6 +4,7 @@ from tqdm import trange
 import torchsde
 
 import k_diffusion as K
+import logging
 
 def make_cond_model_fn(model, cond_fn, cond_inputs, uncond_inputs):
     def cond_model_fn(x, sigma, **kwargs):
@@ -38,8 +39,15 @@ def my_sample_k(
         device="cuda", 
         callback=None, 
         noise_seed=None,
+        debug_dir=None,
         **extra_args
     ):
+
+    logger = extra_args.get('logger')
+    if logger is None:
+        logger = logging.getLogger()
+        logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
 
     is_k_diff = sampler_type in ["dpmpp-3m-sde", "my-dpmpp-3m-sde"]
     
@@ -62,7 +70,8 @@ def my_sample_k(
         if sampler_type == "dpmpp-3m-sde":
             return K.sampling.sample_dpmpp_3m_sde(denoiser, x, sigmas, disable=False, callback=callback, extra_args=extra_args)
         elif sampler_type == "my-dpmpp-3m-sde":
-            return my_sample_dpmpp_3m_sde(denoiser, x, sigmas, disable=False, callback=callback, extra_args=extra_args, noise_seed=noise_seed)
+            logger.info(f"Using my_sample_dpmpp_3m_sde with seed: {noise_seed}")
+            return my_sample_dpmpp_3m_sde(denoiser, x, sigmas, disable=False, callback=callback, extra_args=extra_args, noise_seed=noise_seed, debug_dir=debug_dir)
     else:
         raise ValueError(f"Unknown sampler type {sampler_type}")
 
@@ -118,10 +127,16 @@ class BrownianTreeNoiseSampler:
         return self.tree(t0, t1) / (t1 - t0).abs().sqrt()
 
 @torch.no_grad()
-def my_sample_dpmpp_3m_sde(model, x, sigmas, extra_args=None, callback=None, disable=None, eta=1., s_noise=1., noise_sampler=None, noise_seed=None):
+def my_sample_dpmpp_3m_sde(model, x, sigmas, extra_args=None, callback=None, disable=None, eta=1., s_noise=1., noise_sampler=None, noise_seed=None, debug_dir=None):
     """DPM-Solver++(3M) SDE."""
+    extra_args = {} if extra_args is None else extra_args
+    logger = extra_args.pop('logger', None)
+    if logger is None:
+        logger = logging.getLogger()
+        logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
     sigma_min, sigma_max = sigmas[sigmas > 0].min(), sigmas.max()
+    logger.debug(f"BrownianTreeNoiseSampler using seed: {noise_seed}")
     noise_sampler = BrownianTreeNoiseSampler(x, sigma_min, sigma_max, seed=noise_seed) if noise_sampler is None else noise_sampler
     extra_args = {} if extra_args is None else extra_args
     s_in = x.new_ones([x.shape[0]])
@@ -130,7 +145,12 @@ def my_sample_dpmpp_3m_sde(model, x, sigmas, extra_args=None, callback=None, dis
     h_1, h_2 = None, None
 
     for i in trange(len(sigmas) - 1, disable=disable):
+        if debug_dir:
+            torch.save(x.clone(), os.path.join(debug_dir, f"x_in_step_{i}.pt"))
+
         denoised = model(x, sigmas[i] * s_in, **extra_args)
+        if debug_dir:
+            torch.save(denoised.clone(), os.path.join(debug_dir, f"denoised_step_{i}.pt"))
         if callback is not None:
             callback({'x': x, 'i': i, 'sigma': sigmas[i], 'sigma_hat': sigmas[i], 'denoised': denoised})
         if sigmas[i + 1] == 0:
