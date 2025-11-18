@@ -167,3 +167,6 @@ huggingface_token.txt
 *.png
 *.pdf
 *.log
+
+# Debug directories
+debug_run_*/

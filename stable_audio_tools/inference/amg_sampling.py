@@ -5,6 +5,7 @@ import torchsde
 
 import k_diffusion as K
 import logging
+import os
 
 def make_cond_model_fn(model, cond_fn, cond_inputs, uncond_inputs):
     def cond_model_fn(x, sigma, **kwargs):

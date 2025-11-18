@@ -5,7 +5,11 @@ import numpy as np
 import logging
 from datetime import datetime
 
+torch.backends.cuda.enable_flash_sdp(False)
+torch.backends.cuda.enable_mem_efficient_sdp(False)
+torch.backends.cuda.enable_math_sdp(True)
 os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
+os.environ["PYTHONHASHSEED"] = "42"
 # Create a logs directory if it doesn't exist
 os.makedirs("logs", exist_ok=True)
 
@@ -51,6 +55,7 @@ torch.manual_seed(seed)
 if torch.cuda.is_available():
     torch.cuda.manual_seed_all(seed)
 
+torch.backends.cudnn.benchmark = False
 torch.backends.cudnn.deterministic = True
 torch.use_deterministic_algorithms(True, warn_only=True)
 
@@ -123,7 +128,8 @@ output = my_generate_diffusion_cond(
     lambda_min=lambda_min,
     lambda_max=lambda_max,
     seed=seed,
-    logger=logger
+    logger=logger,
+    debug_dir=debug_dir 
 )
 
 # Rearrange audio batch to a single sequence

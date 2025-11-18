@@ -31,27 +31,34 @@ def generalized_gram_volume(embeddings, return_log=False, logger=None):
     Compute the parallelotope volume spanned by a set of embeddings.
     embeddings: Tensor with shape (K+1, D)
     """
-    # Compute the Gram matrix
-    G = embeddings @ embeddings.T  # Shape (K+1, K+1)
+    # 1. Salva il tipo originale (es. float32) per convertire il risultato alla fine
+    original_dtype = embeddings.dtype
     
-    # Add a small epsilon to the diagonal for numerical stability
-    # Avoid negative or zero determinants due to precision issues
-    G = G + torch.eye(G.shape[0], device=G.device, dtype=G.dtype) * 1e-6
+    # 2. Converti tutto in FLOAT64 (Double Precision) per il calcolo
+    embeddings_64 = embeddings.to(torch.float64)
+
+    # Compute the Gram matrix in float64
+    G = embeddings_64 @ embeddings_64.T  # Shape (K+1, K+1)
+    
+    # Add jitter in float64
+    # 1e-6 in float64 è molto più "pulito" che in float32
+    G = G + torch.eye(G.shape[0], device=G.device, dtype=torch.float64) * 1e-6
     
     sign, log_det = torch.linalg.slogdet(G)
     
     if sign <= 0:
-        # Se il determinante non è positivo, il volume non è calcolabile (vettori linearmente dipendenti)
         return None
         
-    # Il volume è la radice quadrata del determinante di Gram
     log_volume = 0.5 * log_det 
     if logger is not None:
+        # .item() converte in scalare python, quindi non importa il dtype
         logger.debug(f"[DEBUG] Gram Matrix Sign: {sign}, Log-Determinant: {log_det.item():.4f}")
-    #print(f"embeddings: {embeddings}")
+    
     if return_log:
-        return log_volume
-    return torch.exp(log_volume)
+        # 3. Riconverti il risultato nel dtype originale (float32) per continuare il grafo
+        return log_volume.to(original_dtype)
+    
+    return torch.exp(log_volume).to(original_dtype)
 
 
 def my_generate_diffusion_cond(
@@ -201,6 +208,7 @@ def my_generate_diffusion_cond(
             device=device,
             length=effective_audio_length,
             model=model,
+            logger=logger
         )
         guided = make_cond_model_fn(base_denoiser, despec_fn, conditioning_inputs, negative_conditioning_tensors)
         sampler_kwargs['logger'] = logger
@@ -272,7 +280,7 @@ with open('embeddings_new.json','r') as f:
     data = json.load(f)
 
 # make a list of IDs and a single tensor of shape (N, D)
-ids         = list(data.keys())
+ids         = sorted(list(data.keys()))
 emb_matrix  = torch.stack([
     torch.tensor(data[sound_id]['embedding'], 
                 dtype=torch.float32)
