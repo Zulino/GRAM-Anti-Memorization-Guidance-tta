@@ -3,6 +3,7 @@ import os
 import random
 import numpy as np
 import logging
+import math
 from datetime import datetime
 
 torch.backends.cuda.enable_flash_sdp(False)
@@ -76,11 +77,19 @@ os.makedirs(audio_dir, exist_ok=True)
 audio_path = os.path.join(audio_dir, "audio.wav")
 
 total_duration = 1.7143310657596371  # seconds
+downsampling_ratio = model.pretransform.downsampling_ratio if hasattr(model, 'pretransform') else 1
+requested_samples = int(total_duration * sample_rate)
+padded_samples = math.ceil(requested_samples / downsampling_ratio) * downsampling_ratio
+generation_sample_size = padded_samples
+
+logger.info(f"Requested samples: {requested_samples}, Requested duration: {total_duration}, Padded samples: {padded_samples}")
+logger.info(f"Generation sample size: {generation_sample_size}, Generation duration: {generation_sample_size / sample_rate}")
+
 cfg_scale = 7
 c1 = 0
 c2 = 0
 c3 = 0
-c_gram = 1000.0
+c_gram = 100.0
 lambda_min = 0.7
 lambda_max = 0.8
 denoising_steps = 100
@@ -113,7 +122,7 @@ output = my_generate_diffusion_cond(
     cfg_scale=cfg_scale,
     conditioning=conditioning,
     negative_conditioning=negative_conditioning,
-    sample_size=sample_size,
+    sample_size=generation_sample_size,
     sample_rate=sample_rate,
     sigma_min=0.3,
     sigma_max=500,
@@ -123,8 +132,10 @@ output = my_generate_diffusion_cond(
     c2=c2,
     c3=c3,
     c_gram=c_gram,
-    gram_start_step=20,
+    gram_start_step=0,
     gram_use_normalized=False,
+    gram_neighborhood_scale=0.6,
+    constrain_in_sphere=True,
     lambda_min=lambda_min,
     lambda_max=lambda_max,
     seed=seed,

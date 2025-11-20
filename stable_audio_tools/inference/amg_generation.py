@@ -84,6 +84,8 @@ def my_generate_diffusion_cond(
         gram_radius=1.0,
         gram_start_step=0,
         gram_use_normalized=True,
+        gram_neighborhood_scale=1.0,
+        constrain_in_sphere=True,
         lambda_min=0.4,
         lambda_max=0.5,
         logger=None,
@@ -199,9 +201,10 @@ def my_generate_diffusion_cond(
             c2=c2,
             c3=c3,
             c_gram=c_gram,
-            gram_radius=gram_radius,
             gram_start_step=gram_start_step,
             gram_use_normalized=gram_use_normalized,
+            gram_neighborhood_scale=gram_neighborhood_scale,
+            constrain_in_sphere=constrain_in_sphere,
             lambda_min=lambda_min,
             lambda_max=lambda_max,
             CLAP=CLAP,
@@ -295,9 +298,11 @@ def make_despec_fn(
         c2=5.0,
         c3=5.0,
         c_gram=0.0,
-        gram_radius=0.5,
+        #gram_radius=0.5,
+        gram_neighborhood_scale=1.0,
         gram_start_step=0,
-        gram_use_normalized=True,
+        gram_use_normalized=False,
+        constrain_in_sphere=True,
         lambda_min=0.4,
         lambda_max=0.5,
         CLAP=None,
@@ -314,12 +319,13 @@ def make_despec_fn(
 
     neighbor_embeddings_cache = None
     cached_radius = None
+    cached_start_et = None
     cached_min_dist = None
     step_counter = 0
 
     def despec_cond_fn(x, sigma, denoised,
                        conditioning_inputs, negative_conditioning_inputs, **_):
-        nonlocal neighbor_embeddings_cache, cached_radius, cached_min_dist, step_counter
+        nonlocal neighbor_embeddings_cache, cached_radius, cached_min_dist, step_counter, cached_start_et
         x.requires_grad_(True)
         # Unconditional and conditional x0 predictions (VDenoiser outputs x0)
         x0_uncond = denoised  # shape [B,C,L]
@@ -348,49 +354,65 @@ def make_despec_fn(
         e_t = CLAP.get_audio_embedding_from_data(x=audio_batch/peak, use_tensor=True)
         e_t = e_t[0].to(device)
 
+        G_sim = torch.zeros_like(x0_cond)
+        G_spe = torch.zeros_like(x0_cond)
+        G_dedup = torch.zeros_like(x0_cond)
+        mask = 1.0
+
         # Nearest neighbour in embedding space
-        with torch.no_grad():  # search doesn't need gradients
-            dists = torch.linalg.norm(emb_matrix - e_t.unsqueeze(0), dim=1)
-            best_idx = torch.argmin(dists).item()
-            best_id  = ids[best_idx]
-            best_dist= dists[best_idx].item()
-        neighbour_cond = data[best_id]['conditioning']
-        audio_embed = torch.tensor(data[best_id]['embedding'], device=device, dtype=e_t.dtype)
+        if c1 > 0 or c2 > 0 or c3 > 0:
+            with torch.no_grad():  # search doesn't need gradients
+                dists = torch.linalg.norm(emb_matrix - e_t.unsqueeze(0), dim=1)
+                best_idx = torch.argmin(dists).item()
+                best_id  = ids[best_idx]
+                best_dist= dists[best_idx].item()
+            neighbour_cond = data[best_id]['conditioning']
+            audio_embed = torch.tensor(data[best_id]['embedding'], device=device, dtype=e_t.dtype)
 
-        # Conditional prediction for neighbour caption
-        conditioning_tensors_N = model.conditioner([neighbour_cond], device)
-        conditioning_inputs_N = model.get_conditioning_inputs(conditioning_tensors_N, negative=False)
-        x0_cond_N = base_model_fn(x, sigma, **conditioning_inputs_N)
-        eps_cond_N = (x - expand(sqrt_ab) * x0_cond_N) / expand(sqrt_1mab)
+            # Conditional prediction for neighbour caption
+            conditioning_tensors_N = model.conditioner([neighbour_cond], device)
+            conditioning_inputs_N = model.get_conditioning_inputs(conditioning_tensors_N, negative=False)
+            x0_cond_N = base_model_fn(x, sigma, **conditioning_inputs_N)
+            eps_cond_N = (x - expand(sqrt_ab) * x0_cond_N) / expand(sqrt_1mab)
 
-        # Similarity scalar (dot). (Could normalize embeddings if desired.)
-        cos_sim = (e_t * audio_embed).sum(dim=-1)  # scalar
-        sim_scalar = cos_sim.sum()
-        G_sim = torch.zeros_like(x0_cond_N)
-        if c3 > 0:
-            # Gradient of similarity w.r.t. x (through x0_uncond -> decode -> embedding model)
-            try:
-                grad_sigma = torch.autograd.grad(sim_scalar, x, retain_graph=True, allow_unused=True)[0]
-                if grad_sigma is not None:
-                    G_sim = - c3 * torch.sqrt(1 - alpha_bar) * grad_sigma
-            except RuntimeError:
-                pass  # Fallback: leave G_sim zeros if path not differentiable
+            # Similarity scalar (dot). (Could normalize embeddings if desired.)
+            cos_sim = (e_t * audio_embed).sum(dim=-1)  # scalar
+            sim_scalar = cos_sim.sum()
 
-        # Dynamic scales s1, s2 based on similarity
-        s1 = (c1 * cos_sim).clamp(0, s0 - 1)
-        s2 = (c2 * cos_sim).clamp(0, s0 - s1.item() - 1)
+            if c3 > 0:
+                # Gradient of similarity w.r.t. x (through x0_uncond -> decode -> embedding model)
+                try:
+                    grad_sigma = torch.autograd.grad(sim_scalar, x, retain_graph=True, allow_unused=True)[0]
+                    if grad_sigma is not None:
+                        G_sim = - c3 * torch.sqrt(1 - alpha_bar) * grad_sigma
+                except RuntimeError:
+                    pass  # Fallback: leave G_sim zeros if path not differentiable
 
-        # Guidance terms computed in epsilon space then mapped back to x0 space.
-        delta_eps   = eps_cond   - eps_uncond
-        delta_eps_N = eps_cond_N - eps_uncond
-        scale_eps2x0 = - (sqrt_1mab / sqrt_ab)
-        scale_b = expand(scale_eps2x0)
-        delta_x0   = scale_b * delta_eps
-        delta_x0_N = scale_b * delta_eps_N
-        
-        G_cfg   = s0 * delta_x0
-        G_spe   = -s1 * delta_x0
-        G_dedup = -s2 * delta_x0_N
+            # Dynamic scales s1, s2 based on similarity
+            s1 = (c1 * cos_sim).clamp(0, s0 - 1)
+            s2 = (c2 * cos_sim).clamp(0, s0 - s1.item() - 1)
+
+            # Guidance terms computed in epsilon space then mapped back to x0 space.
+            delta_eps   = eps_cond   - eps_uncond
+            delta_eps_N = eps_cond_N - eps_uncond
+            scale_eps2x0 = - (sqrt_1mab / sqrt_ab)
+            scale_b = expand(scale_eps2x0)
+            delta_x0   = scale_b * delta_eps
+            delta_x0_N = scale_b * delta_eps_N
+            
+            G_spe   = -s1 * delta_x0
+            G_dedup = -s2 * delta_x0_N
+
+            lambda_t = lambda_min + (lambda_max - lambda_min) * (alpha_bar ** 2)
+            mask = (cos_sim > lambda_t).float().view(-1, *([1] * (G_spe.ndim - 1)))
+
+        else:
+            delta_eps   = eps_cond - eps_uncond
+            scale_eps2x0 = - (sqrt_1mab / sqrt_ab)
+            scale_b = expand(scale_eps2x0)
+            delta_x0   = scale_b * delta_eps
+
+        G_cfg = s0 * delta_x0
 
         #GRAM-AMG
         G_gram = torch.zeros_like(x0_cond) # Inizializza a zero
@@ -398,22 +420,30 @@ def make_despec_fn(
         
         enable_gram_guidance = c_gram > 0 and step_counter >= gram_start_step
         if enable_gram_guidance:
-            logger.debug(f"[DEBUG] Gram guidance enabled at step {step_counter} with c_gram={c_gram}, gram_radius={gram_radius}")
+            logger.debug(f"[DEBUG] Gram guidance enabled at step {step_counter} with c_gram={c_gram}")
 
             if neighbor_embeddings_cache is None:
                 with torch.no_grad():
                     e_t_detached = e_t.detach()
                     dists_to_et = torch.linalg.norm(emb_matrix - e_t_detached.unsqueeze(0), dim=1)
-                    neighbor_indices = torch.where(dists_to_et < gram_radius)[0]
+                    max_neighbors = min(emb_matrix.shape[0], 511)
+                    k_neighbors = int(1 + round(gram_neighborhood_scale * (max_neighbors - 1)))
+                    topk_vals, topk_indices = torch.topk(dists_to_et, k=k_neighbors, largest=False)
+                    neighbor_embeddings_cache = emb_matrix[topk_indices]
+                    cached_radius = topk_vals[-1].item()
+                    cached_start_et = e_t_detached.clone()
 
-                if neighbor_indices.numel() > 0:
-                    neighbor_embeddings_cache = emb_matrix[neighbor_indices]
-                    cached_radius = gram_radius
-                    cached_min_dist = dists_to_et.min().item()
-                    logger.debug(f"[DEBUG] Cached {neighbor_embeddings_cache.shape[0]} neighbor embeddings for Gram guidance.")
-                else:
-                    neighbor_embeddings_cache = None
-                    logger.debug("[DEBUG] No neighbors found for Gram guidance; skipping cache.")
+                    if logger:
+                        logger.debug(f"[DEBUG] Gram Init: Scale={gram_neighborhood_scale:.2f} -> Selected {k_neighbors} neighbors. Radius (K-th dist): {cached_radius:.4f}")
+
+                # if neighbor_indices.numel() > 0:
+                #     neighbor_embeddings_cache = emb_matrix[neighbor_indices]
+                #     cached_radius = gram_radius
+                #     cached_min_dist = dists_to_et.min().item()
+                #     logger.debug(f"[DEBUG] Cached {neighbor_embeddings_cache.shape[0]} neighbor embeddings for Gram guidance.")
+                # else:
+                #     neighbor_embeddings_cache = None
+                #     logger.debug("[DEBUG] No neighbors found for Gram guidance; skipping cache.")
 
             if neighbor_embeddings_cache is not None:
                 neighbor_embeddings = neighbor_embeddings_cache
@@ -429,7 +459,12 @@ def make_despec_fn(
 
                 if log_volume is not None:
                     # Maximize log(volume) -> minimize -log(volume)
-                    total_gram_loss = -log_volume 
+                    total_gram_loss = -log_volume
+                    current_dist = torch.linalg.norm(e_t - cached_start_et)
+                    if current_dist > cached_radius and constrain_in_sphere:
+                        diff = current_dist - cached_radius
+                        dist_penalty = diff * 0.5
+                        total_gram_loss += dist_penalty 
                     logger.debug(f"[DEBUG] Gram log-volume: {log_volume.item():.4f}, Total gram loss: {total_gram_loss.item():.4f}")
                 else:
                     logger.debug("[DEBUG] Volume computation failed (None).")
@@ -454,8 +489,8 @@ def make_despec_fn(
                     pass
 
         # Parabolic gating based on alpha_bar
-        lambda_t = lambda_min + (lambda_max - lambda_min) * (alpha_bar ** 2)
-        mask = (cos_sim > lambda_t).float().view(-1, *([1] * (G_spe.ndim - 1)))
+        # lambda_t = lambda_min + (lambda_max - lambda_min) * (alpha_bar ** 2)
+        # mask = (cos_sim > lambda_t).float().view(-1, *([1] * (G_spe.ndim - 1)))
 
         additional = G_spe + G_dedup + G_sim + G_gram
         #additional = G_spe + G_dedup + G_sim
