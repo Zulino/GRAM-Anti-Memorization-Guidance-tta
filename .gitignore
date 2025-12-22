@@ -170,3 +170,29 @@ huggingface_token.txt
 
 # Debug directories
 debug_run_*/
+
+# Generated data / output directories (large files)
+gram150_full_clusters_6k/
+baseline&noAmg_full_clusters_6k/
+random_gen_parallel/
+batch_gen_parallel/
+soundDataset/
+rescale_studies/
+ID_1921/
+random_gen/
+dynamic_test/
+logs/
+cluster_gen_parallel/
+100gram_c250_s06_st0/
+batch_output_baseline_no_sphere_50/
+100baseline_s06/
+batch_output_100/
+100no_amg_s06/
+batch_output_gram_no_sphere_50/
+specralAnalysis/
+spectral_analysis/
+model_cache/
+
+# Large model/embedding files
+*.ptag_w_klm.tmp
+embeddings_new.json

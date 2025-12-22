@@ -1,0 +1,12 @@
+{
+  "eval_dir": "/mnt/media/HDD_4TB/riccardo/GRAM-AMG/rescale_studies/gram_rescale2/random_prompts",
+  "baseline_dir": "/mnt/media/HDD_4TB/riccardo/GRAM-AMG/soundDataset",
+  "sample_rate": 16000,
+  "n_eval_files": 97,
+  "n_ref_files": 97,
+  "results": {
+    "vggish": 5.74268830689849,
+    "clap-laion-music": 0.3181744165964763,
+    "MERT-v1-95M": 13.844923346404755
+  }
+}

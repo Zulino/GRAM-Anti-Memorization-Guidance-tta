@@ -7,6 +7,7 @@ import k_diffusion as K
 #import CLAP.src.laion_clap as laion_clap
 from sklearn.metrics.pairwise import cosine_similarity
 import logging
+from dataclasses import dataclass, field
 
 from .utils import prepare_audio
 from .sampling import sample_rf
@@ -15,6 +16,7 @@ from .amg_sampling import my_sample_k, make_cond_model_fn
 import os, sys, json
 import matplotlib.pyplot as plt
 import torch.nn.functional as F
+from scipy import fft as scipy_fft
 
 HERE = os.path.dirname(__file__)
 ROOT = os.path.abspath(os.path.join(HERE, '..','..','..'))  
@@ -26,22 +28,209 @@ sys.path.insert(0, LOCAL_CLAP)
 # 3) Now import exactly your local code:
 import laion_clap 
 
+
+
+def apply_latent_lowpass_fft(tensor: torch.Tensor, cutoff_ratio: float = 0.25, soft_knee: float = 0.1):
+    """
+    Applica un Low-Pass filter direttamente nello spazio latente usando FFT.
+    
+    Args:
+        tensor: [Batch, Channels, Time] (es. [1, 64, 1024])
+        cutoff_ratio: 0.0 -> 1.0. Percentuale di frequenze da MANTENERE. 
+                      0.25 significa: tieni i bassi (primo 25%), taglia il resto.
+        soft_knee: Percentuale di transizione per evitare il taglio netto (riduce il ringing).
+    """
+    # 1. FFT sui Latents (Real FFT, solo frequenze positive)
+    # tensor è reale, rfft è più efficiente
+    fft_g = torch.fft.rfft(tensor, dim=-1, norm='ortho')
+    
+    # 2. Creazione della Maschera
+    num_freqs = fft_g.shape[-1]
+    cutoff_idx = int(num_freqs * cutoff_ratio)
+    fade_len = int(num_freqs * soft_knee)
+    
+    # Inizializza maschera a zeri (tutto tagliato)
+    mask = torch.zeros(num_freqs, device=tensor.device, dtype=tensor.dtype)
+    
+    # Passa-tutto fino al cutoff
+    mask[:cutoff_idx] = 1.0
+    
+    # Dissolvenza (Linear Fade-out) per evitare il "Gibbs Phenomenon"
+    if fade_len > 0 and cutoff_idx < num_freqs:
+        end_fade = min(cutoff_idx + fade_len, num_freqs)
+        actual_fade_len = end_fade - cutoff_idx
+        # Crea una rampa che va da 1 a 0
+        fade_curve = torch.linspace(1, 0, actual_fade_len, device=tensor.device, dtype=tensor.dtype)
+        mask[cutoff_idx:end_fade] = fade_curve
+
+    # 3. Applica Maschera (Broadcasting automatico su Batch e Channels)
+    fft_g_filtered = fft_g * mask
+    
+    # 4. Inverse FFT per tornare al tempo
+    # n=tensor.shape[-1] è CRUCIALE per gestire lunghezze dispari/pari correttamente
+    filtered_tensor = torch.fft.irfft(fft_g_filtered, n=tensor.shape[-1], dim=-1, norm='ortho')
+    
+    return filtered_tensor
+
+
+
+@dataclass
+class GuidanceSpectralCollector:
+    """
+    Collector for guidance signals directly in LATENT space.
+    Does NOT decode to audio, to preserve the modulation frequency analysis.
+    """
+    enabled: bool = False
+    cfg_history: list = field(default_factory=list)  # Stored as latents
+    amg_history: list = field(default_factory=list)  # Stored as latents
+    sigma_history: list = field(default_factory=list)
+    sample_rate_audio: int = 48000
+    downsampling_ratio: int = 2048
+    
+    def reset(self):
+        self.cfg_history = []
+        self.amg_history = []
+        self.sigma_history = []
+    
+    def set_pretransform(self, pretransform, audio_length: int):
+        # We just need metadata, not the decode function
+        self.sample_rate_audio = pretransform.sample_rate if hasattr(pretransform, 'sample_rate') else 48000
+        self.downsampling_ratio = pretransform.downsampling_ratio if hasattr(pretransform, 'downsampling_ratio') else 2048
+    
+    @torch.no_grad()
+    def collect(self, G_cfg: torch.Tensor, G_amg: torch.Tensor, sigma: float):
+        if not self.enabled:
+            return
+        
+        # G_cfg shape: [B, 64, 1024]
+        # We assume batch size 1 or take mean. 
+        # We keep the Channel dimension to average over it later, or keep it.
+        # Let's average over Batch and Channels to get a single time-series per step representing "Global Activity"
+        
+        # Mean over Batch(0) and Channels(1) -> Result: [Time_Latent]
+        # Oppure possiamo tenere i canali se vuoi vedere se certi canali sono più attivi. 
+        # Per semplicità, mediamo sui canali per vedere l'energia spettrale globale.
+        
+        cfg_latent_profile = G_cfg.detach().mean(dim=(0, 1)).cpu().numpy()  # [1024]
+        amg_latent_profile = G_amg.detach().mean(dim=(0, 1)).cpu().numpy()  # [1024]
+        
+        self.cfg_history.append(cfg_latent_profile)
+        self.amg_history.append(amg_latent_profile)
+        self.sigma_history.append(sigma)
+
+
+def compute_and_save_guidance_spectrograms(
+    collector: GuidanceSpectralCollector,
+    output_dir: str,
+    sample_rate: int = 48000, # Used only to calc latent rate
+    latent_ratio: int = 2048,
+    logger: logging.Logger = None
+):
+    if not collector.enabled or len(collector.cfg_history) == 0:
+        return
+    
+    os.makedirs(output_dir, exist_ok=True)
+    
+    # Stack: [Num_Steps, Latent_Time]
+    cfg_stack = np.stack(collector.cfg_history, axis=0) 
+    amg_stack = np.stack(collector.amg_history, axis=0)
+    sigmas = np.array(collector.sigma_history)
+    
+    num_steps, latent_length = cfg_stack.shape
+    
+    # --- CALCOLO FREQUENZE LATENTI ---
+    # SR_latent = SR_audio / Downsampling
+    sr_latent = sample_rate / latent_ratio  # Es: 48000 / 2048 = 23.43 Hz
+    nyquist_latent = sr_latent / 2          # Es: ~11.7 Hz
+    
+    if logger:
+        logger.info(f"Computing LATENT spectrograms.")
+        logger.info(f"  Latent SR: {sr_latent:.2f} Hz | Nyquist: {nyquist_latent:.2f} Hz")
+    
+    # FFT Latente (Real)
+    # axis=1 è il tempo latente
+    cfg_fft = scipy_fft.rfft(cfg_stack, axis=1)
+    amg_fft = scipy_fft.rfft(amg_stack, axis=1)
+    
+    # Frequenze per l'asse Y
+    freqs = scipy_fft.rfftfreq(latent_length, d=1.0/sr_latent)
+    
+    # Magnitudo dB
+    cfg_db = 20 * np.log10(np.abs(cfg_fft) + 1e-10)
+    amg_db = 20 * np.log10(np.abs(amg_fft) + 1e-10)
+    
+    # --- PLOTTING ---
+    fig, axes = plt.subplots(2, 1, figsize=(12, 12))
+    
+    # 1. CFG Spectrogram
+    im0 = axes[0].imshow(
+        cfg_db.T, 
+        aspect='auto', 
+        origin='lower',
+        extent=[0, num_steps, 0, nyquist_latent], # Asse Y da 0 a ~11 Hz
+        cmap='inferno'
+    )
+    axes[0].set_title(f'CFG Latent Spectrum (Normal Guidance)\nNyquist: {nyquist_latent:.2f} Hz')
+    axes[0].set_ylabel('Latent Modulation Freq (Hz)')
+    axes[0].set_xlabel('Denoising Step')
+    plt.colorbar(im0, ax=axes[0], label='dB')
+
+    # 2. AMG Spectrogram
+    im1 = axes[1].imshow(
+        amg_db.T, 
+        aspect='auto', 
+        origin='lower',
+        extent=[0, num_steps, 0, nyquist_latent],
+        cmap='inferno'
+    )
+    axes[1].set_title(f'AMG Latent Spectrum (Anti-Mem Guidance)\nShould see Cutoff if filtered')
+    axes[1].set_ylabel('Latent Modulation Freq (Hz)')
+    axes[1].set_xlabel('Denoising Step')
+    plt.colorbar(im1, ax=axes[1], label='dB')
+    
+    plt.tight_layout()
+    save_path = os.path.join(output_dir, 'latent_spectrograms.png')
+    fig.savefig(save_path, dpi=150)
+    plt.close(fig)
+    
+    # Plot Profilo Medio (Per vedere chiaramente il taglio)
+    fig_prof, ax_prof = plt.subplots(figsize=(10, 6))
+    
+    # Media su tutti gli step
+    mean_cfg_spec = np.mean(np.abs(cfg_fft), axis=0)
+    mean_amg_spec = np.mean(np.abs(amg_fft), axis=0)
+    
+    ax_prof.plot(freqs, 20*np.log10(mean_cfg_spec + 1e-10), label='CFG (Ref)', color='gray', alpha=0.5)
+    ax_prof.plot(freqs, 20*np.log10(mean_amg_spec + 1e-10), label='AMG (Filtered)', color='red', linewidth=2)
+    
+    ax_prof.set_title('Average Spectral Profile (Latent Space)')
+    ax_prof.set_xlabel('Latent Frequency (Hz)')
+    ax_prof.set_ylabel('Magnitude (dB)')
+    ax_prof.legend()
+    ax_prof.grid(True, alpha=0.3)
+    
+    save_path_prof = os.path.join(output_dir, 'latent_spectrum_profile.png')
+    fig_prof.savefig(save_path_prof, dpi=150)
+    plt.close(fig_prof)
+
+    return save_path, save_path_prof, None
+
+
 def generalized_gram_volume(embeddings, return_log=False, logger=None):
     """
     Compute the parallelotope volume spanned by a set of embeddings.
     embeddings: Tensor with shape (K+1, D)
     """
-    # 1. Salva il tipo originale (es. float32) per convertire il risultato alla fine
+    # 1. Save original dtype
     original_dtype = embeddings.dtype
     
-    # 2. Converti tutto in FLOAT64 (Double Precision) per il calcolo
+    # 2. Convert everything to FLOAT64 (Double Precision) for calculation
     embeddings_64 = embeddings.to(torch.float64)
 
     # Compute the Gram matrix in float64
     G = embeddings_64 @ embeddings_64.T  # Shape (K+1, K+1)
     
     # Add jitter in float64
-    # 1e-6 in float64 è molto più "pulito" che in float32
     G = G + torch.eye(G.shape[0], device=G.device, dtype=torch.float64) * 1e-6
     
     sign, log_det = torch.linalg.slogdet(G)
@@ -63,6 +252,7 @@ def generalized_gram_volume(embeddings, return_log=False, logger=None):
 
 def my_generate_diffusion_cond(
         model,
+        clap_model=None,
         steps: int = 250,
         cfg_scale=6,
         conditioning: dict = None,
@@ -90,6 +280,11 @@ def my_generate_diffusion_cond(
         lambda_max=0.5,
         logger=None,
         debug_dir=None,
+        guidance_rescale=0.0,
+        enable_spectral_analysis=False,
+        spectral_output_dir=None,
+        amg_filter_enabled=False,
+        amg_cutoff_ratio=0.25,
         **sampler_kwargs
         ) -> torch.Tensor: 
     """
@@ -109,6 +304,20 @@ def my_generate_diffusion_cond(
         init_audio: A tuple of (sample_rate, audio) to use as the initial audio for generation.
         init_noise_level: The noise level to use when generating from an initial audio sample.
         return_latents: Whether to return the latents used for generation instead of the decoded audio.
+        c1, c2, c3: Coefficients for different CLAP guidance components.
+        gram_radius: Radius for neighborhood in Gram calculation.
+        gram_start_step: Step to start applying Gram-based guidance.
+        gram_use_normalized: Whether to use normalized embeddings for Gram calculation.
+        gram_neighborhood_scale: Scale for neighborhood in Gram calculation.
+        constrain_in_sphere: Whether to constrain embeddings within a sphere.
+        lambda_min, lambda_max: Min and max lambda values for Gram guidance.
+        logger: Optional logger for debug messages.
+        debug_dir: Optional directory to save debug tensors.
+        guidance_rescale: Rescaling factor for guidance signals.
+        enable_spectral_analysis: Whether to enable spectral analysis of guidance signals.
+        spectral_output_dir: Directory to save spectral analysis outputs.
+        amg_filter_enabled: Whether to enable AMG filtering on guidance signals.
+        amg_cutoff_ratio: Cutoff ratio for AMG filtering (0.0-1.0).
         **sampler_kwargs: Additional keyword arguments to pass to the sampler.    
     """
 
@@ -116,14 +325,23 @@ def my_generate_diffusion_cond(
         logger = logging.getLogger()
         logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
+
+    # Initialize spectral collector
+    spectral_collector = GuidanceSpectralCollector(enabled=enable_spectral_analysis)
+    if enable_spectral_analysis:
+        logger.info("Spectral analysis enabled for guidance signals (audio domain).")
     
+
     audio_sample_size = sample_size
     effective_audio_length = int(conditioning[0]["seconds_total"] * sample_rate)
-
-    # If this is latent diffusion, change sample_size instead to the downsampled latent size
+    
+    # Set pretransform for spectral collector to decode guidance to audio domain
+    if model.pretransform is not None:
+        if enable_spectral_analysis:
+            spectral_collector.set_pretransform(model.pretransform, effective_audio_length)
     if model.pretransform is not None:
         sample_size = sample_size // model.pretransform.downsampling_ratio
-        
+          
     # Seed
     # The user can explicitly set the seed to deterministically generate the same output. Otherwise, use a random seed.
     seed = seed if seed != -1 else np.random.randint(0, 2**32 - 1)
@@ -181,12 +399,15 @@ def my_generate_diffusion_cond(
 
     diff_objective = model.diffusion_objective
 
-    if diff_objective == "v":     
-        # Clap init
-        CLAP = laion_clap.CLAP_Module(enable_fusion=False, device=device)
-        CLAP.load_ckpt()
-        CLAP.eval()
-        # CLAP tokenizer
+    if diff_objective == "v":
+        if clap_model is not None:
+            CLAP = clap_model
+        else:
+            # Clap init
+            CLAP = laion_clap.CLAP_Module(enable_fusion=False, device=device)
+            CLAP.load_ckpt()
+            CLAP.eval()
+            # CLAP tokenizer
         e_prompt = CLAP.get_text_embedding([conditioning[0]["prompt"]])
         e_prompt = e_prompt[0]
         
@@ -201,6 +422,7 @@ def my_generate_diffusion_cond(
             c2=c2,
             c3=c3,
             c_gram=c_gram,
+            guidance_rescale=guidance_rescale,
             gram_start_step=gram_start_step,
             gram_use_normalized=gram_use_normalized,
             gram_neighborhood_scale=gram_neighborhood_scale,
@@ -211,7 +433,10 @@ def my_generate_diffusion_cond(
             device=device,
             length=effective_audio_length,
             model=model,
-            logger=logger
+            logger=logger,
+            spectral_collector=spectral_collector,
+            amg_filter_enabled=amg_filter_enabled,
+            amg_cutoff_ratio=amg_cutoff_ratio
         )
         guided = make_cond_model_fn(base_denoiser, despec_fn, conditioning_inputs, negative_conditioning_tensors)
         sampler_kwargs['logger'] = logger
@@ -275,6 +500,19 @@ def my_generate_diffusion_cond(
         
         # 'sampled' is now on CPU. If you need it on the GPU for subsequent steps:
         sampled = sampled.to('cpu') # where 'device' is your target CUDA device
+    
+    # Compute and save spectral analysis if enabled
+    if enable_spectral_analysis and spectral_collector.enabled:
+        output_dir = spectral_output_dir if spectral_output_dir else (debug_dir if debug_dir else './spectral_analysis')
+        latent_ratio = model.pretransform.downsampling_ratio if model.pretransform is not None else 1
+        compute_and_save_guidance_spectrograms(
+            collector=spectral_collector,
+            output_dir=output_dir,
+            sample_rate=model.sample_rate,
+            latent_ratio=latent_ratio,
+            logger=logger
+        )
+    
     # Return audio
     return sampled
 
@@ -283,12 +521,22 @@ with open('embeddings_new.json','r') as f:
     data = json.load(f)
 
 # make a list of IDs and a single tensor of shape (N, D)
+# Keep on CPU, will be moved to correct device when needed
 ids         = sorted(list(data.keys()))
-emb_matrix  = torch.stack([
+emb_matrix_cpu  = torch.stack([
     torch.tensor(data[sound_id]['embedding'], 
                 dtype=torch.float32)
     for sound_id in ids
-], dim=0).cuda("cuda:1")  # → (N, D)
+], dim=0)  # → (N, D) on CPU
+
+# Cache for device-specific embedding matrices
+_emb_matrix_cache = {}
+
+def get_emb_matrix(device: str) -> torch.Tensor:
+    """Get embedding matrix on the specified device (cached)."""
+    if device not in _emb_matrix_cache:
+        _emb_matrix_cache[device] = emb_matrix_cpu.to(device)
+    return _emb_matrix_cache[device]
 
 def make_despec_fn(
         base_model_fn,
@@ -309,7 +557,12 @@ def make_despec_fn(
         device="cuda:1",
         length=2097152,
         model=None,
-        logger=None
+        logger=None,
+        guidance_rescale=0.0,
+        spectral_collector: GuidanceSpectralCollector = None,
+        amg_filter_enabled=False,
+        amg_cutoff_ratio=0.25
+
     ):
     """Return a cond_fn that applies AMG‐despecification at each step."""
 
@@ -361,6 +614,7 @@ def make_despec_fn(
 
         # Nearest neighbour in embedding space
         if c1 > 0 or c2 > 0 or c3 > 0:
+            emb_matrix = get_emb_matrix(device)
             with torch.no_grad():  # search doesn't need gradients
                 dists = torch.linalg.norm(emb_matrix - e_t.unsqueeze(0), dim=1)
                 best_idx = torch.argmin(dists).item()
@@ -415,7 +669,7 @@ def make_despec_fn(
         G_cfg = s0 * delta_x0
 
         #GRAM-AMG
-        G_gram = torch.zeros_like(x0_cond) # Inizializza a zero
+        G_gram = torch.zeros_like(x0_cond) 
         total_gram_loss = 0.0
         
         enable_gram_guidance = c_gram > 0 and step_counter >= gram_start_step
@@ -423,6 +677,7 @@ def make_despec_fn(
             logger.debug(f"[DEBUG] Gram guidance enabled at step {step_counter} with c_gram={c_gram}")
 
             if neighbor_embeddings_cache is None:
+                emb_matrix = get_emb_matrix(device)
                 with torch.no_grad():
                     e_t_detached = e_t.detach()
                     dists_to_et = torch.linalg.norm(emb_matrix - e_t_detached.unsqueeze(0), dim=1)
@@ -436,14 +691,6 @@ def make_despec_fn(
                     if logger:
                         logger.debug(f"[DEBUG] Gram Init: Scale={gram_neighborhood_scale:.2f} -> Selected {k_neighbors} neighbors. Radius (K-th dist): {cached_radius:.4f}")
 
-                # if neighbor_indices.numel() > 0:
-                #     neighbor_embeddings_cache = emb_matrix[neighbor_indices]
-                #     cached_radius = gram_radius
-                #     cached_min_dist = dists_to_et.min().item()
-                #     logger.debug(f"[DEBUG] Cached {neighbor_embeddings_cache.shape[0]} neighbor embeddings for Gram guidance.")
-                # else:
-                #     neighbor_embeddings_cache = None
-                #     logger.debug("[DEBUG] No neighbors found for Gram guidance; skipping cache.")
 
             if neighbor_embeddings_cache is not None:
                 neighbor_embeddings = neighbor_embeddings_cache
@@ -460,11 +707,12 @@ def make_despec_fn(
                 if log_volume is not None:
                     # Maximize log(volume) -> minimize -log(volume)
                     total_gram_loss = -log_volume
-                    current_dist = torch.linalg.norm(e_t - cached_start_et)
-                    if current_dist > cached_radius and constrain_in_sphere:
-                        diff = current_dist - cached_radius
-                        dist_penalty = diff * 0.5
-                        total_gram_loss += dist_penalty 
+                    if constrain_in_sphere:
+                        current_dist = torch.linalg.norm(e_t - cached_start_et)
+                        if current_dist > cached_radius:
+                            diff = current_dist - cached_radius
+                            dist_penalty = diff * 0.5
+                            total_gram_loss += dist_penalty 
                     logger.debug(f"[DEBUG] Gram log-volume: {log_volume.item():.4f}, Total gram loss: {total_gram_loss.item():.4f}")
                 else:
                     logger.debug("[DEBUG] Volume computation failed (None).")
@@ -478,7 +726,7 @@ def make_despec_fn(
                     if grad_gram_raw is not None:
                         logger.debug(f"[DEBUG] Raw Grad Norm: {grad_gram_raw.norm().item():.4e}")
  
-                    # --- FIX 2: AGGIUNTO TORCH.SQRT() ---
+            
                         G_gram = -c_gram * expand(torch.sqrt(1 - alpha_bar)) * grad_gram_raw
                     
                     else:
@@ -492,17 +740,52 @@ def make_despec_fn(
         # lambda_t = lambda_min + (lambda_max - lambda_min) * (alpha_bar ** 2)
         # mask = (cos_sim > lambda_t).float().view(-1, *([1] * (G_spe.ndim - 1)))
 
+        if amg_filter_enabled and G_gram.abs().sum() > 1e-6:
+            logger.debug(f"[FFT FILTER] Applying AMG FFT lowpass filter with cutoff ratio {amg_cutoff_ratio:.2f}, AMG gradient shape before filter: {G_gram.shape}")
+            norm_before = G_gram.norm().item()
+            G_gram = apply_latent_lowpass_fft(G_gram, cutoff_ratio=amg_cutoff_ratio)
+            norm_after = G_gram.norm().item()
+            logger.debug(f"[FFT FILTER] Cutoff: {amg_cutoff_ratio:.2f} | Norm: {norm_before:.2f} -> {norm_after:.2f} AMG Gradient shape: {G_gram.shape}")
+
         additional = G_spe + G_dedup + G_sim + G_gram
         #additional = G_spe + G_dedup + G_sim
+        
         step_counter += 1
 
-        print(f"[DEBUG S: {sigma.item():>6.2f}] NORMS || "
-                f"G_cfg: {G_cfg.norm().item():.2f} | "
-                f"G_spe: {G_spe.norm().item():.2f} | "
-                f"G_dedup: {G_dedup.norm().item():.2f} | "
-                f"G_sim: {G_sim.norm().item():.2f} | "
-                f"G_gram: {G_gram.norm().item():.2f} | "
-                f"Additional: {additional.norm().item():.2f} | ")
-        return G_cfg + mask * additional
+        # Collect guidance signals for spectral analysis
+        if spectral_collector is not None and spectral_collector.enabled:
+            sigma_val = sigma[0].item() if sigma.dim() > 0 and sigma.numel() > 1 else sigma.item()
+            spectral_collector.collect(G_cfg, mask * additional, sigma_val)
+
+        proposed_x0 = x0_uncond + G_cfg + mask * additional
+        if guidance_rescale > 0.0:
+            dims = list(range(1, proposed_x0.ndim))
+            std_pos = x0_cond.std(dim=dims, keepdim=True)
+            std_proposed = proposed_x0.std(dim=dims, keepdim=True)
+            
+            std_proposed = std_proposed.clamp(min=1e-6)
+            factor = std_pos / std_proposed
+            
+            final_factor = guidance_rescale * factor + (1.0 - guidance_rescale)
+            final_x0 = proposed_x0 * final_factor
+            
+            # Handle both scalar and batched sigma
+            sigma_val = sigma[0].item() if sigma.dim() > 0 and sigma.numel() > 1 else sigma.item()
+            logger.debug(f"[DEBUG S: {sigma_val:>6.2f}] RESCALE || "
+                  f"Std Ref: {std_pos.mean().item():.4f} | "
+                  f"Std Prop: {std_proposed.mean().item():.4f} | "
+                  f"Factor: {final_factor.mean().item():.4f}")
+        else:
+            final_x0 = proposed_x0
+
+        # Handle both scalar and batched sigma
+        sigma_val = sigma[0].item() if sigma.dim() > 0 and sigma.numel() > 1 else sigma.item()
+        logger.debug(f"[DEBUG S: {sigma_val:>6.2f}] NORMS || "
+              f"G_cfg: {G_cfg.norm().item():.2f} | "
+              f"G_gram: {G_gram.norm().item():.2f} | "
+              f"Addit: {additional.norm().item():.2f} | "
+              f"Final: {final_x0.norm().item():.2f}")
+
+        return final_x0 - x0_uncond
 
     return despec_cond_fn

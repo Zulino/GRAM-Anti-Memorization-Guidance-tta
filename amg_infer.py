@@ -49,12 +49,13 @@ os.makedirs(debug_dir, exist_ok=True)
 
 
 device = "cuda:1" if torch.cuda.is_available() else "cpu"
-seed = 42
-random.seed(seed)
-np.random.seed(seed)
-torch.manual_seed(seed)
-if torch.cuda.is_available():
-    torch.cuda.manual_seed_all(seed)
+seed = 4
+if seed != -1:
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
 
 torch.backends.cudnn.benchmark = False
 torch.backends.cudnn.deterministic = True
@@ -66,6 +67,9 @@ model, model_config = get_pretrained_model("stabilityai/stable-audio-open-1.0", 
 sample_rate = model_config["sample_rate"]
 sample_size = model_config["sample_size"]
 logger.info("Model loaded.")
+
+logger.info(f"--> DIFFUSION OBJECTIVE: {model.diffusion_objective}")
+
 # Enable float16 and move model to device
 #model.half()
 model = model.to(device)
@@ -74,9 +78,9 @@ model = model.to(device)
 # Ensure output directory exists, and skip saving if the file already exists
 audio_dir = "./"
 os.makedirs(audio_dir, exist_ok=True)
-audio_path = os.path.join(audio_dir, "audio.wav")
+audio_path = os.path.join(audio_dir, "gram_filtered_spectral.wav")
 
-total_duration = 1.7143310657596371  # seconds
+total_duration = 2  # seconds
 downsampling_ratio = model.pretransform.downsampling_ratio if hasattr(model, 'pretransform') else 1
 requested_samples = int(total_duration * sample_rate)
 padded_samples = math.ceil(requested_samples / downsampling_ratio) * downsampling_ratio
@@ -85,16 +89,17 @@ generation_sample_size = padded_samples
 logger.info(f"Requested samples: {requested_samples}, Requested duration: {total_duration}, Padded samples: {padded_samples}")
 logger.info(f"Generation sample size: {generation_sample_size}, Generation duration: {generation_sample_size / sample_rate}")
 
-cfg_scale = 7
+cfg_scale = 7.0
 c1 = 0
 c2 = 0
 c3 = 0
-c_gram = 100.0
+c_gram = 250.0
+guidance_rescale = 0.0
 lambda_min = 0.7
 lambda_max = 0.8
 denoising_steps = 100
 
-#prompt = "An acoustic drum loop, 110 bpm"
+#prompt = "Acoustic drum loop with a tempo of 140 bpm, featuring a blend of kick, snare, hi-hats, and percussion elements. The loop has a driving rhythm suitable for electronic music genres such as techno and trance. It includes subtle variations in dynamics and texture to keep the groove interesting over time."
 prompt = "\"ATTACK loop 140 bpm-00.wav\" till \"ATTACK loop 140 bpm-31.wav\"\r\nare all part of the \"ATTACK LOOP 6\" sample package and belong together\r\nas they are all variations on the same 1 measure 4/4 140 bpm drumloop. The loop has a techno-trance\r\nfeel. The first four loops (00 till 03) contain some variations of the\r\npure drumloop, where 00 is the most minimal and 03 the fullest. All\r\nother variations add other sound effects, some of them being sounds\r\nwith a certain pitch, mostly C. These loop are suitable for your trance\r\nand techno productions. They were created using the Waldorf Attack VSTi within Cubase SX. Mastering (EQ, Stereo Enhancer, Multi-Band expand/compress/limit, dither, fades at start and/or end) done within Wavelab.\r\n"
 
 # Set up text and timing conditioning
@@ -132,15 +137,20 @@ output = my_generate_diffusion_cond(
     c2=c2,
     c3=c3,
     c_gram=c_gram,
+    guidance_rescale=guidance_rescale,
     gram_start_step=0,
     gram_use_normalized=False,
     gram_neighborhood_scale=0.6,
-    constrain_in_sphere=True,
+    constrain_in_sphere=False,
     lambda_min=lambda_min,
     lambda_max=lambda_max,
     seed=seed,
     logger=logger,
-    debug_dir=debug_dir 
+    debug_dir=debug_dir,
+    enable_spectral_analysis=True,
+    spectral_output_dir="spectral_analysis/filtering_guidance",
+    amg_filter_enabled=True,
+    amg_cutoff_ratio=0.25, 
 )
 
 # Rearrange audio batch to a single sequence
