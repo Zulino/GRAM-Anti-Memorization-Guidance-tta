@@ -11,7 +11,7 @@ import sys
 from stable_audio_tools.inference import amg_generation
 
 # --- CONFIGURATION ---
-RANDOM_GEN_DIR = "./random_gen_parallel"
+RANDOM_GEN_DIR = "./spectralAnalysis_fad/no_amg"
 EMBEDDINGS_FILE = 'embeddings_new.json'
 DEVICE = "cuda:1" if torch.cuda.is_available() else "cpu"
 

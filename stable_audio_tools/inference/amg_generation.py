@@ -72,7 +72,37 @@ def apply_latent_lowpass_fft(tensor: torch.Tensor, cutoff_ratio: float = 0.25, s
     
     return filtered_tensor
 
+def apply_latent_highpass_fft(tensor: torch.Tensor, cutoff_ratio: float = 0.25, soft_knee: float = 0.1):
+    """
+    Applica un High-Pass filter (Passa-Alto) nello spazio latente.
+    Mantiene le frequenze SOPRA il cutoff (dettagli rapidi/rumore), rimuove la struttura.
+    Utile per ablation studies: "Cosa succede se tengo solo la memorizzazione?"
+    """
+    # 1. FFT
+    fft_g = torch.fft.rfft(tensor, dim=-1, norm='ortho')
+    
+    # 2. Setup Maschera
+    seq_len = fft_g.shape[-1]
+    cutoff_idx = int(seq_len * cutoff_ratio)
+    fade_len = int(seq_len * soft_knee)
+    
+    # Inizializza a ZERI (tutto bloccato di default)
+    mask = torch.zeros(seq_len, device=tensor.device, dtype=tensor.dtype)
+    
+    # 3. Logica High-Pass
+    # Manteniamo da cutoff_idx fino alla fine
+    mask[cutoff_idx:] = 1.0
+    
+    # Dissolvenza in entrata (Fade-In) per evitare click
+    if fade_len > 0 and cutoff_idx > 0:
+        start_fade = max(0, cutoff_idx - fade_len)
+        # Rampa da 0 a 1 che finisce esattamente al cutoff
+        ramp = torch.linspace(0, 1, cutoff_idx - start_fade, device=tensor.device, dtype=tensor.dtype)
+        mask[start_fade:cutoff_idx] = ramp
 
+    # 4. Applica e Inverti
+    fft_filtered = fft_g * mask
+    return torch.fft.irfft(fft_filtered, n=tensor.shape[-1], dim=-1, norm='ortho')
 
 @dataclass
 class GuidanceSpectralCollector:
@@ -285,6 +315,10 @@ def my_generate_diffusion_cond(
         spectral_output_dir=None,
         amg_filter_enabled=False,
         amg_cutoff_ratio=0.25,
+        amg_filter_mode='lowpass',
+        save_latents=False,    
+        latent_filename=None,
+        latent_batch_start_idx=1,
         **sampler_kwargs
         ) -> torch.Tensor: 
     """
@@ -436,7 +470,8 @@ def my_generate_diffusion_cond(
             logger=logger,
             spectral_collector=spectral_collector,
             amg_filter_enabled=amg_filter_enabled,
-            amg_cutoff_ratio=amg_cutoff_ratio
+            amg_cutoff_ratio=amg_cutoff_ratio,
+            amg_filter_mode=amg_filter_mode,
         )
         guided = make_cond_model_fn(base_denoiser, despec_fn, conditioning_inputs, negative_conditioning_tensors)
         sampler_kwargs['logger'] = logger
@@ -465,6 +500,32 @@ def my_generate_diffusion_cond(
             del sampler_kwargs["rho"]
 
         sampled = sample_rf(model.model, noise, init_data=init_audio, steps=steps, **sampler_kwargs, **conditioning_inputs, **negative_conditioning_tensors, dist_shift=model.dist_shift, cfg_scale=cfg_scale, batch_cfg=True, rescale_cfg=True, device=device)
+
+    if save_latents:
+        # Crea cartella 'latents' dentro debug_dir (o nella current dir)
+        base_dir = debug_dir if debug_dir else "."
+        latent_dir = os.path.join(base_dir, "latents")
+        os.makedirs(latent_dir, exist_ok=True)
+        
+        # Salva ogni elemento del batch separatamente
+        batch_size = sampled.shape[0]
+        for i in range(batch_size):
+            # Determina nome file per questo elemento
+            if latent_filename:
+                base_name = latent_filename
+                # Rimuovi estensioni se presenti
+                if base_name.endswith('.wav'): base_name = base_name[:-4]
+                if base_name.endswith('.pt'): base_name = base_name[:-3]
+                # Usa l'indice globale (batch_start_idx + i)
+                fname = f"{base_name}_{latent_batch_start_idx + i}.pt"
+            else:
+                fname = f"latent_seed{seed}_{latent_batch_start_idx + i}.pt"
+                
+            save_path = os.path.join(latent_dir, fname)
+            
+            # Salva singolo tensore (sposta su CPU per risparmiare VRAM/compatibilità)
+            torch.save(sampled[i].detach().cpu(), save_path)
+            logger.info(f"[IO] Saved latent tensor to: {save_path}")
 
     # v-diffusion: 
     #sampled = sample(model.model, noise, steps, 0, **conditioning_tensors, embedding_scale=cfg_scale)
@@ -561,7 +622,8 @@ def make_despec_fn(
         guidance_rescale=0.0,
         spectral_collector: GuidanceSpectralCollector = None,
         amg_filter_enabled=False,
-        amg_cutoff_ratio=0.25
+        amg_cutoff_ratio=0.25,
+        amg_filter_mode='lowpass'
 
     ):
     """Return a cond_fn that applies AMG‐despecification at each step."""
@@ -743,7 +805,14 @@ def make_despec_fn(
         if amg_filter_enabled and G_gram.abs().sum() > 1e-6:
             logger.debug(f"[FFT FILTER] Applying AMG FFT lowpass filter with cutoff ratio {amg_cutoff_ratio:.2f}, AMG gradient shape before filter: {G_gram.shape}")
             norm_before = G_gram.norm().item()
-            G_gram = apply_latent_lowpass_fft(G_gram, cutoff_ratio=amg_cutoff_ratio)
+            if amg_filter_mode == 'highpass':
+                G_gram = apply_latent_highpass_fft(G_gram, cutoff_ratio=amg_cutoff_ratio)
+                filter_name = "HighPass"
+            else:
+                # Default a LowPass (quello che usavi prima)
+                G_gram = apply_latent_lowpass_fft(G_gram, cutoff_ratio=amg_cutoff_ratio)
+                filter_name = "LowPass"
+            
             norm_after = G_gram.norm().item()
             logger.debug(f"[FFT FILTER] Cutoff: {amg_cutoff_ratio:.2f} | Norm: {norm_before:.2f} -> {norm_after:.2f} AMG Gradient shape: {G_gram.shape}")
 

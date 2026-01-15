@@ -263,9 +263,11 @@ def main():
         help="File JSON dove salvare i risultati completi dell'analisi"
     )
     parser.add_argument(
-        "--no-recursive", "-nr",
-        action="store_true",
-        help="Non cercare ricorsivamente nelle sottocartelle"
+        "--recursive", "-r",
+        type=lambda x: x.lower() in ('true', '1', 'yes', 'si', 's'),
+        default=True,
+        metavar="BOOL",
+        help="Se True cerca anche nelle sottocartelle, se False solo nella cartella specificata (default: True)"
     )
     parser.add_argument(
         "--list-all",
@@ -280,12 +282,13 @@ def main():
     print(f"{'='*60}")
     print(f"Cartella: {args.folder}")
     print(f"Soglia: {args.threshold}")
+    print(f"Ricerca ricorsiva: {args.recursive}")
     print(f"{'='*60}\n")
     
     noise_files, all_results = analyze_folder(
         args.folder,
         threshold=args.threshold,
-        recursive=not args.no_recursive
+        recursive=args.recursive
     )
     
     # Ordina tutti i risultati per noise score
@@ -323,12 +326,14 @@ def main():
     
     # Salva JSON se richiesto
     if args.output_json:
+        avg_noise_score = np.mean([r['noise_score'] for r in all_results]) if all_results else 0.0
         with open(args.output_json, 'w') as f:
             json.dump({
                 'folder': args.folder,
                 'threshold': args.threshold,
                 'total_files': len(all_results),
                 'noise_files_count': len(noise_files),
+                'average_noise_score': float(avg_noise_score),
                 'results': all_results
             }, f, indent=2)
         print(f"\nRisultati salvati in: {args.output_json}")

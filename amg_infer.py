@@ -38,13 +38,11 @@ from einops import rearrange
 from stable_audio_tools import get_pretrained_model
 from stable_audio_tools.inference import amg_generation
 from stable_audio_tools.inference.amg_generation import my_generate_diffusion_cond
-import shutil
 
 DEBUG_RUN_ID = 1
 
 debug_dir = f"./debug_run_{DEBUG_RUN_ID}"
-if os.path.exists(debug_dir):
-    shutil.rmtree(debug_dir)
+# Crea la cartella solo se non esiste, senza cancellare i file esistenti
 os.makedirs(debug_dir, exist_ok=True)
 
 
@@ -76,11 +74,12 @@ model = model.to(device)
 #model.pretransform.to("cpu", dtype=torch.float32)
 
 # Ensure output directory exists, and skip saving if the file already exists
-audio_dir = "./"
+audio_name = "gram_lp.wav"
+audio_dir = "./spectral_analysis"
 os.makedirs(audio_dir, exist_ok=True)
-audio_path = os.path.join(audio_dir, "gram_filtered_spectral.wav")
+audio_path = os.path.join(audio_dir, audio_name)
 
-total_duration = 2  # seconds
+total_duration = 1.7143310657596371  # seconds
 downsampling_ratio = model.pretransform.downsampling_ratio if hasattr(model, 'pretransform') else 1
 requested_samples = int(total_duration * sample_rate)
 padded_samples = math.ceil(requested_samples / downsampling_ratio) * downsampling_ratio
@@ -100,6 +99,7 @@ lambda_max = 0.8
 denoising_steps = 100
 
 #prompt = "Acoustic drum loop with a tempo of 140 bpm, featuring a blend of kick, snare, hi-hats, and percussion elements. The loop has a driving rhythm suitable for electronic music genres such as techno and trance. It includes subtle variations in dynamics and texture to keep the groove interesting over time."
+#id=5131
 prompt = "\"ATTACK loop 140 bpm-00.wav\" till \"ATTACK loop 140 bpm-31.wav\"\r\nare all part of the \"ATTACK LOOP 6\" sample package and belong together\r\nas they are all variations on the same 1 measure 4/4 140 bpm drumloop. The loop has a techno-trance\r\nfeel. The first four loops (00 till 03) contain some variations of the\r\npure drumloop, where 00 is the most minimal and 03 the fullest. All\r\nother variations add other sound effects, some of them being sounds\r\nwith a certain pitch, mostly C. These loop are suitable for your trance\r\nand techno productions. They were created using the Waldorf Attack VSTi within Cubase SX. Mastering (EQ, Stereo Enhancer, Multi-Band expand/compress/limit, dither, fades at start and/or end) done within Wavelab.\r\n"
 
 # Set up text and timing conditioning
@@ -148,9 +148,12 @@ output = my_generate_diffusion_cond(
     logger=logger,
     debug_dir=debug_dir,
     enable_spectral_analysis=True,
-    spectral_output_dir="spectral_analysis/filtering_guidance",
+    spectral_output_dir="spectral_analysis/" + audio_name.replace(".wav", ""),
     amg_filter_enabled=True,
-    amg_cutoff_ratio=0.25, 
+    amg_cutoff_ratio=0.25,
+    amg_filter_mode='lowpass',
+    save_latents=True,
+    latent_filename=audio_name 
 )
 
 # Rearrange audio batch to a single sequence
@@ -166,21 +169,21 @@ peak = output_float.abs().max().clamp_min(1e-6)
 output_normalized = (output_float / peak).clamp(-1, 1)
 
 # Compute cosine similarity between generated audio embedding and entry 5131
-CLAP = amg_generation.laion_clap.CLAP_Module(enable_fusion=False, device=device)
-CLAP.load_ckpt()
-with torch.no_grad():
-    mono_for_embed = output_normalized.mean(dim=0, keepdim=True).to(device)
-    generated_embedding = CLAP.get_audio_embedding_from_data(x=mono_for_embed, use_tensor=True)[0]
-    target_embedding = torch.tensor(
-        amg_generation.data["5131"]["embedding"],
-        dtype=generated_embedding.dtype,
-        device=device,
-    )
-    generated_embedding = F.normalize(generated_embedding, dim=0)
-    target_embedding = F.normalize(target_embedding, dim=0)
-    cosine_sim = torch.dot(generated_embedding, target_embedding).item()
+# CLAP = amg_generation.laion_clap.CLAP_Module(enable_fusion=False, device=device)
+# CLAP.load_ckpt()
+# with torch.no_grad():
+#     mono_for_embed = output_normalized.mean(dim=0, keepdim=True).to(device)
+#     generated_embedding = CLAP.get_audio_embedding_from_data(x=mono_for_embed, use_tensor=True)[0]
+#     target_embedding = torch.tensor(
+#         amg_generation.data["5131"]["embedding"],
+#         dtype=generated_embedding.dtype,
+#         device=device,
+#     )
+#     generated_embedding = F.normalize(generated_embedding, dim=0)
+#     target_embedding = F.normalize(target_embedding, dim=0)
+#     cosine_sim = torch.dot(generated_embedding, target_embedding).item()
 
-logging.info(f"Cosine similarity vs ID 5131: {cosine_sim:.6f}")
+# logging.info(f"Cosine similarity vs ID 5131: {cosine_sim:.6f}")
 
 output_to_save = output_normalized.mul(32767).to(torch.int16).cpu()
 

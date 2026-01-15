@@ -190,9 +190,27 @@ batch_output_100/
 100no_amg_s06/
 batch_output_gram_no_sphere_50/
 specralAnalysis/
+spectralAnalysis/
+spectralAnalysis_fad/
 spectral_analysis/
+spectral_comparison/
 model_cache/
+latents/
+analysis_latent/
+analysis_results/
+
+# Large generated data directories
+gram_lp_full_clusters_6k/
+gram_lp_sphere_studies_full_clusters_6k/
 
 # Large model/embedding files
 *.ptag_w_klm.tmp
 embeddings_new.json
+analysis.json
+analysis_gram.json
+
+# Audio and media files
+*.mp3
+*.flac
+*.ogg
+*.pt

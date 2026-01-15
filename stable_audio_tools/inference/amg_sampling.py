@@ -146,12 +146,12 @@ def my_sample_dpmpp_3m_sde(model, x, sigmas, extra_args=None, callback=None, dis
     h_1, h_2 = None, None
 
     for i in trange(len(sigmas) - 1, disable=disable):
-        if debug_dir:
-            torch.save(x.clone(), os.path.join(debug_dir, f"x_in_step_{i}.pt"))
+        # if debug_dir:
+        #     torch.save(x.clone(), os.path.join(debug_dir, f"x_in_step_{i}.pt"))
 
         denoised = model(x, sigmas[i] * s_in, **extra_args)
-        if debug_dir:
-            torch.save(denoised.clone(), os.path.join(debug_dir, f"denoised_step_{i}.pt"))
+        # if debug_dir:
+        #     torch.save(denoised.clone(), os.path.join(debug_dir, f"denoised_step_{i}.pt"))
         if callback is not None:
             callback({'x': x, 'i': i, 'sigma': sigmas[i], 'sigma_hat': sigmas[i], 'denoised': denoised})
         if sigmas[i + 1] == 0:
