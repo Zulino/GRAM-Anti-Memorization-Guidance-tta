@@ -700,10 +700,37 @@ def main():
     
     print("="*100)
     
-    # Save summary
+    # Calculate overall means across all subdirectories
+    overall_means = {}
+    if all_results:
+        metric_keys = ['global_avg_sim', 'global_avg_max_sim', 'avg_target_sim', 
+                       'max_target_sim', 'avg_prompt_adherence', 'intra_list_diversity', 
+                       'total_variance']
+        for key in metric_keys:
+            values = [m[key] for m in all_results.values() if key in m]
+            if values:
+                overall_means[key] = float(np.mean(values))
+                overall_means[f'{key}_std'] = float(np.std(values))
+    
+    # Print overall means
+    if overall_means:
+        print(f"\nOVERALL MEANS (across {len(all_results)} subdirectories):")
+        print(f"  Global Avg Similarity:     {overall_means.get('global_avg_sim', 0):.4f} ± {overall_means.get('global_avg_sim_std', 0):.4f}")
+        print(f"  Avg NN Similarity:         {overall_means.get('global_avg_max_sim', 0):.4f} ± {overall_means.get('global_avg_max_sim_std', 0):.4f}")
+        print(f"  Avg Target Similarity:     {overall_means.get('avg_target_sim', 0):.4f} ± {overall_means.get('avg_target_sim_std', 0):.4f}")
+        print(f"  Avg Prompt Adherence:      {overall_means.get('avg_prompt_adherence', 0):.4f} ± {overall_means.get('avg_prompt_adherence_std', 0):.4f}")
+        print(f"  Intra-list Diversity:      {overall_means.get('intra_list_diversity', 0):.4f} ± {overall_means.get('intra_list_diversity_std', 0):.4f}")
+    
+    # Save summary with overall means
+    summary_data = {
+        'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        'num_subdirectories': len(all_results),
+        'overall_means': overall_means,
+        'per_subdirectory_results': all_results
+    }
     summary_path = os.path.join(input_dir, "evaluation_summary.json")
     with open(summary_path, 'w') as f:
-        json.dump(all_results, f, indent=4)
+        json.dump(summary_data, f, indent=4)
     print(f"\nSummary saved to: {summary_path}")
     
     # --- AGGREGATED RESULTS PER CONFIGURATION (if nested structure) ---
