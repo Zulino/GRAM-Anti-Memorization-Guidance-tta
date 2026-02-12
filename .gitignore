@@ -170,6 +170,7 @@ huggingface_token.txt
 
 # Debug directories
 debug_run_*/
+debug_baseline_outputs/
 
 # Generated data / output directories (large files)
 gram150_full_clusters_6k/
@@ -198,6 +199,11 @@ model_cache/
 latents/
 analysis_latent/
 analysis_results/
+
+# Mel / spectrogram outputs (large)
+mel_*/
+mel_out*/
+mel_out_real/
 
 # Large generated data directories
 gram_lp_full_clusters_6k/
