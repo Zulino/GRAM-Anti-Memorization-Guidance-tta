@@ -1,0 +1,7 @@
+{
+  "cluster_id": 35,
+  "representative_id": "4741",
+  "prompt": "This sample is part of the \"PPG MULTISAMPLE 005 Detroit 100 bpm Chord Arp\" sample pack. It is an arpeggiated dissonant chord at 100 bpm.\r\nIn the sample pack there are 16 samples evenly spread across 5 octaves\r\n(C1 till C6). The note in the sample name (C, E or G#) does not\r\nindicate the pitch of the sound but the key on my keyboard. The sound\r\nwas created on the PPG VSTi. After that normalising and fades where applied within Cubase SX.",
+  "duration": 9.599818594104308,
+  "batch_size": 100
+}

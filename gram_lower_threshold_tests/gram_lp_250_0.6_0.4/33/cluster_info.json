@@ -1,0 +1,7 @@
+{
+  "cluster_id": 33,
+  "representative_id": "4724",
+  "prompt": "This sample is part of the \"PPG\r\nMULTISAMPLE 004 Digital Shorty\" sample pack. It is a very short sound\r\neffect with some pitch element in it, and can be used for arpeggios. In\r\nthe sample pack there are 16 samples evenly spread across 5 octaves (C1\r\ntill C6). The note in the sample name (C, E or G#) does not indicate\r\nthe pitch of the sound but the key on my keyboard. The sound was\r\ncreated on the PPG VSTi. After that normalising and fades where applied within Cubase SX.",
+  "duration": 0.9599773242630385,
+  "batch_size": 100
+}

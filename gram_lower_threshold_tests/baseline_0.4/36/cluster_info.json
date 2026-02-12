@@ -1,0 +1,7 @@
+{
+  "cluster_id": 36,
+  "representative_id": "4763",
+  "prompt": "This sample is part of the \"PPG\r\nMULTISAMPLE 006 Digital Mallet\" sample pack. It is a short bell sound\r\nwith some harsh digital distorion above it, especially at the higher\r\npitches. In the sample pack there are 16 samples evenly spread across 5\r\noctaves (C1 till C6). The note in the sample name (C, E or G#) does not\r\nindicate the pitch of the sound but the key on my keyboard. The sound\r\nwas created on the PPG VSTi. After that normalising and fades where applied within Cubase SX.",
+  "duration": 1.199750566893424,
+  "batch_size": 100
+}

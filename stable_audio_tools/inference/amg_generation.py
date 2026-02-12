@@ -632,15 +632,11 @@ def make_despec_fn(
         logger = logging.getLogger()
         logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-    neighbor_embeddings_cache = None
-    cached_radius = None
-    cached_start_et = None
-    cached_min_dist = None
     step_counter = 0
 
     def despec_cond_fn(x, sigma, denoised,
                        conditioning_inputs, negative_conditioning_inputs, **_):
-        nonlocal neighbor_embeddings_cache, cached_radius, cached_min_dist, step_counter, cached_start_et
+        nonlocal step_counter
         x.requires_grad_(True)
         # Unconditional and conditional x0 predictions (VDenoiser outputs x0)
         x0_uncond = denoised  # shape [B,C,L]
@@ -658,71 +654,238 @@ def make_despec_fn(
         eps_uncond = (x - expand(sqrt_ab) * x0_uncond) / expand(sqrt_1mab)
         eps_cond   = (x - expand(sqrt_ab) * x0_cond)   / expand(sqrt_1mab)
 
+        # CLAP processing: loop over batch elements to compute embeddings and gradients correctly
         latent_ratio  = model.pretransform.downsampling_ratio
         latent_length = length // latent_ratio
-        x0_trim = x0_cond[:, :, :latent_length]
-        x0_trim = model.pretransform.decode(x0_trim)
-
-        audio_batch = x0_trim.mean(dim=1)  # mono
-        # Normalize to [-1,1] scale for CLAP (avoid division by zero)
-        peak = audio_batch.abs().max().clamp_min(1e-6)
-        e_t = CLAP.get_audio_embedding_from_data(x=audio_batch/peak, use_tensor=True)
-        e_t = e_t[0].to(device)
-
+        batch_size = x.shape[0]
+        
+        # Initialize guidance tensors
         G_sim = torch.zeros_like(x0_cond)
         G_spe = torch.zeros_like(x0_cond)
         G_dedup = torch.zeros_like(x0_cond)
-        mask = 1.0
-
-        # Nearest neighbour in embedding space
+        mask = torch.ones(batch_size, 1, 1, device=device, dtype=x0_cond.dtype)
+        
+        # For AMG we need to process each batch element separately for correct gradients
         if c1 > 0 or c2 > 0 or c3 > 0:
             emb_matrix = get_emb_matrix(device)
-            with torch.no_grad():  # search doesn't need gradients
-                dists = torch.linalg.norm(emb_matrix - e_t.unsqueeze(0), dim=1)
-                best_idx = torch.argmin(dists).item()
-                best_id  = ids[best_idx]
-                best_dist= dists[best_idx].item()
-            neighbour_cond = data[best_id]['conditioning']
-            audio_embed = torch.tensor(data[best_id]['embedding'], device=device, dtype=e_t.dtype)
-
-            # Conditional prediction for neighbour caption
-            conditioning_tensors_N = model.conditioner([neighbour_cond], device)
-            conditioning_inputs_N = model.get_conditioning_inputs(conditioning_tensors_N, negative=False)
-            x0_cond_N = base_model_fn(x, sigma, **conditioning_inputs_N)
-            eps_cond_N = (x - expand(sqrt_ab) * x0_cond_N) / expand(sqrt_1mab)
-
-            # Similarity scalar (dot). (Could normalize embeddings if desired.)
-            cos_sim = (e_t * audio_embed).sum(dim=-1)  # scalar
-            sim_scalar = cos_sim.sum()
-
-            if c3 > 0:
-                # Gradient of similarity w.r.t. x (through x0_uncond -> decode -> embedding model)
-                try:
-                    grad_sigma = torch.autograd.grad(sim_scalar, x, retain_graph=True, allow_unused=True)[0]
-                    if grad_sigma is not None:
-                        G_sim = - c3 * torch.sqrt(1 - alpha_bar) * grad_sigma
-                except RuntimeError:
-                    pass  # Fallback: leave G_sim zeros if path not differentiable
-
-            # Dynamic scales s1, s2 based on similarity
-            s1 = (c1 * cos_sim).clamp(0, s0 - 1)
-            s2 = (c2 * cos_sim).clamp(0, s0 - s1.item() - 1)
-
-            # Guidance terms computed in epsilon space then mapped back to x0 space.
-            delta_eps   = eps_cond   - eps_uncond
-            delta_eps_N = eps_cond_N - eps_uncond
-            scale_eps2x0 = - (sqrt_1mab / sqrt_ab)
-            scale_b = expand(scale_eps2x0)
-            delta_x0   = scale_b * delta_eps
-            delta_x0_N = scale_b * delta_eps_N
             
-            G_spe   = -s1 * delta_x0
-            G_dedup = -s2 * delta_x0_N
-
+            # ============================================================
+            # PHASE 1: Compute CLAP embeddings WITHOUT gradients to determine
+            # which batch elements exceed the similarity threshold (cheap).
+            # ============================================================
+            e_t_list_nograd = []
+            cos_sim_list = []
+            neighbour_cond_list = []
+            audio_embed_list = []
+            neighbor_embeddings_list = []  # Store K neighbors for each batch element (for GRAM)
+            best_ids_list = []
+            
+            with torch.no_grad():
+                for b in range(batch_size):
+                    # Decode single element
+                    x0_b = x0_cond[b:b+1, :, :latent_length]  # [1, C, latent_length]
+                    x0_decoded = model.pretransform.decode(x0_b)  # [1, 2, audio_length]
+                    
+                    audio_mono = x0_decoded.mean(dim=1)  # [1, audio_length]
+                    peak = audio_mono.abs().max().clamp_min(1e-6)
+                    audio_normalized = audio_mono / peak  # [1, audio_length]
+                    
+                    # CLAP expects 1D audio, squeeze to remove batch dim
+                    audio_for_clap = audio_normalized.squeeze(0)  # [audio_length]
+                    e_t_b = CLAP.get_audio_embedding_from_data(x=[audio_for_clap], use_tensor=True)
+                    e_t_b = e_t_b[0].to(device)  # [512]
+                    e_t_list_nograd.append(e_t_b)
+                    
+                    # Find nearest neighbour for AMG (single closest)
+                    dists = torch.linalg.norm(emb_matrix - e_t_b.unsqueeze(0), dim=1)
+                    best_idx = torch.argmin(dists).item()
+                    best_id = ids[best_idx]
+                    best_ids_list.append(best_id)
+                    
+                    # Also find K neighbors for GRAM (if enabled)
+                    if c_gram > 0:
+                        max_neighbors = min(emb_matrix.shape[0], 511)
+                        k_neighbors = int(1 + round(gram_neighborhood_scale * (max_neighbors - 1)))
+                        _, topk_indices = torch.topk(dists, k=k_neighbors, largest=False)
+                        neighbor_embs = emb_matrix[topk_indices]  # [K, 512]
+                        neighbor_embeddings_list.append(neighbor_embs)
+                    
+                    neighbour_cond = data[best_id]['conditioning']
+                    audio_embed = torch.tensor(data[best_id]['embedding'], device=device, dtype=e_t_b.dtype)
+                    
+                    neighbour_cond_list.append(neighbour_cond)
+                    audio_embed_list.append(audio_embed)
+                    
+                    # Compute similarity for this element
+                    cos_sim_b = (e_t_b * audio_embed).sum(dim=-1)
+                    cos_sim_list.append(cos_sim_b)
+            
+            cos_sim = torch.stack(cos_sim_list, dim=0)  # [B]
+            
+            # Compute mask BEFORE expensive gradient operations
             lambda_t = lambda_min + (lambda_max - lambda_min) * (alpha_bar ** 2)
-            mask = (cos_sim > lambda_t).float().view(-1, *([1] * (G_spe.ndim - 1)))
+            mask = (cos_sim > lambda_t).float().view(-1, 1, 1)  # [B, 1, 1]
+            
+            if logger:
+                # Handle both scalar and tensor lambda_t
+                if hasattr(lambda_t, 'numel') and lambda_t.numel() > 1:
+                    lambda_t_str = f"[{', '.join([f'{v:.3f}' for v in lambda_t.tolist()])}]"
+                else:
+                    lambda_t_val = lambda_t.item() if hasattr(lambda_t, 'item') else lambda_t
+                    lambda_t_str = f"{lambda_t_val:.3f}"
+                
+                cos_sim_str = f"[{', '.join([f'{v:.2f}' for v in cos_sim.tolist()])}]"
+                mask_active = int(mask.sum().item())
+                logger.debug(f"[MASK DEBUG S:{step_counter:>3}] lambda_min={lambda_min:.3f} | lambda_max={lambda_max:.3f} | lambda_t={lambda_t_str} | cos_sim={cos_sim_str} | mask_active={mask_active}/{batch_size}")
+            
+            # Check if ANY element in the batch is active
+            any_active = mask.sum().item() > 0
+            
+            # ============================================================
+            # PHASE 2: Only if at least one element exceeds threshold,
+            # recompute embeddings WITH gradients for active elements.
+            # ============================================================
+            if any_active:
+                active_indices = [b for b in range(batch_size) if mask[b, 0, 0].item() > 0]
+                
+                # Recompute CLAP embeddings WITH gradients only for active elements
+                e_t_list_grad = [None] * batch_size
+                for b in active_indices:
+                    x0_b = x0_cond[b:b+1, :, :latent_length]
+                    x0_decoded = model.pretransform.decode(x0_b)
+                    
+                    audio_mono = x0_decoded.mean(dim=1)
+                    peak = audio_mono.abs().max().clamp_min(1e-6)
+                    audio_normalized = audio_mono / peak
+                    
+                    audio_for_clap = audio_normalized.squeeze(0)
+                    e_t_b = CLAP.get_audio_embedding_from_data(x=[audio_for_clap], use_tensor=True)
+                    e_t_b = e_t_b[0].to(device)
+                    e_t_list_grad[b] = e_t_b
+                
+                # G_sim: gradient of cosine similarity for active elements only
+                if c3 > 0:
+                    try:
+                        total_sim = torch.tensor(0.0, device=device)
+                        for b in active_indices:
+                            e_t_b = e_t_list_grad[b]
+                            audio_embed_b = audio_embed_list[b]
+                            cos_sim_b = (e_t_b * audio_embed_b).sum(dim=-1)
+                            total_sim = total_sim + cos_sim_b
+                        
+                        grad_sigma = torch.autograd.grad(total_sim, x, retain_graph=True, allow_unused=True)[0]
+                        if grad_sigma is None:
+                            grad_sigma = torch.zeros_like(x)
+                        G_sim = - c3 * expand(torch.sqrt(1 - alpha_bar)) * grad_sigma
+                        
+                        if step_counter % 10 == 0 and logger:
+                            logger.debug(f"STEP {step_counter}: G_sim calculated for {len(active_indices)} active elements. Norm: {G_sim.norm().item()}")
+                    except RuntimeError as e:
+                        if logger: logger.error(f"STEP {step_counter}: Gradient Error: {e}")
+                        G_sim = torch.zeros_like(x)
+                
+                # Build e_t_batch for GRAM: use no-grad embeddings for inactive, grad for active
+                e_t_batch_list = []
+                for b in range(batch_size):
+                    if e_t_list_grad[b] is not None:
+                        e_t_batch_list.append(e_t_list_grad[b])
+                    else:
+                        e_t_batch_list.append(e_t_list_nograd[b])
+                e_t_batch = torch.stack(e_t_batch_list, dim=0)  # [B, 512]
+                
+                # Conditional prediction for neighbour captions
+                conditioning_tensors_N = model.conditioner(neighbour_cond_list, device)
+                conditioning_inputs_N = model.get_conditioning_inputs(conditioning_tensors_N, negative=False)
+                x0_cond_N = base_model_fn(x, sigma, **conditioning_inputs_N)
+                eps_cond_N = (x - expand(sqrt_ab) * x0_cond_N) / expand(sqrt_1mab)
+
+                # Dynamic scales s1, s2 - per-element vectors
+                cos_sim_expanded = cos_sim.view(-1, 1, 1)  # [B, 1, 1]
+                s1 = torch.clamp(c1 * cos_sim_expanded, min=0, max=s0 - 1)  # [B, 1, 1]
+                s2 = torch.clamp(c2 * cos_sim_expanded, min=0, max=s0 - 1)  # [B, 1, 1]
+                s2 = torch.min(s2, s0 - s1 - 1)
+
+                # Guidance terms computed in epsilon space then mapped back to x0 space
+                delta_eps   = eps_cond   - eps_uncond
+                delta_eps_N = eps_cond_N - eps_uncond
+                scale_eps2x0 = - (sqrt_1mab / sqrt_ab)
+                scale_b = expand(scale_eps2x0)
+                delta_x0   = scale_b * delta_eps
+                delta_x0_N = scale_b * delta_eps_N
+                
+                G_spe   = -s1 * delta_x0  # Per-element scaling [B, C, L]
+                G_dedup = -s2 * delta_x0_N  # Per-element scaling [B, C, L]
+            
+            else:
+                # No active elements - skip all expensive gradient computations
+                if logger:
+                    logger.debug(f"STEP {step_counter}: No active elements (all below threshold). Skipping gradient computations.")
+                e_t_batch = torch.stack(e_t_list_nograd, dim=0)  # [B, 512]
+                
+                # Still need delta_x0 for G_cfg below
+                delta_eps   = eps_cond   - eps_uncond
+                scale_eps2x0 = - (sqrt_1mab / sqrt_ab)
+                scale_b = expand(scale_eps2x0)
+                delta_x0   = scale_b * delta_eps
 
         else:
+            # No AMG - but still need e_t_batch and neighbors if GRAM is enabled
+            e_t_batch = None
+            neighbor_embeddings_list = []
+            cos_sim = None
+            if c_gram > 0:
+                emb_matrix = get_emb_matrix(device)
+                # Compute CLAP embedding for ALL batch elements for GRAM guidance
+                e_t_list = []
+                cos_sim_list = []
+                for b in range(batch_size):
+                    x0_b = x0_cond[b:b+1, :, :latent_length]
+                    x0_decoded = model.pretransform.decode(x0_b)
+                    audio_mono = x0_decoded.mean(dim=1)
+                    peak = audio_mono.abs().max().clamp_min(1e-6)
+                    audio_normalized = audio_mono / peak
+                    # CLAP expects 1D audio, squeeze to remove batch dim
+                    audio_for_clap = audio_normalized.squeeze(0)  # [audio_length]
+                    e_t_b = CLAP.get_audio_embedding_from_data(x=[audio_for_clap], use_tensor=True)
+                    e_t_b = e_t_b[0].to(device)  # [512]
+                    e_t_list.append(e_t_b)
+                    
+                    # Find K neighbors for this batch element
+                    with torch.no_grad():
+                        dists = torch.linalg.norm(emb_matrix - e_t_b.unsqueeze(0), dim=1)
+                        best_idx = torch.argmin(dists).item()
+                        best_id = ids[best_idx]
+
+                        audio_embed = torch.tensor(data[best_id]['embedding'], device=device, dtype=e_t_b.dtype)
+                        cos_sim_b = (e_t_b * audio_embed).sum(dim=-1)
+                        cos_sim_list.append(cos_sim_b)
+
+
+                        max_neighbors = min(emb_matrix.shape[0], 511)
+                        k_neighbors = int(1 + round(gram_neighborhood_scale * (max_neighbors - 1)))
+                        _, topk_indices = torch.topk(dists, k=k_neighbors, largest=False)
+                        neighbor_embs = emb_matrix[topk_indices]  # [K, 512]
+                        neighbor_embeddings_list.append(neighbor_embs)
+                        
+                e_t_batch = torch.stack(e_t_list, dim=0)  # [B, 512]
+                cos_sim = torch.stack(cos_sim_list, dim=0)  # [B]
+
+                lambda_t = lambda_min + (lambda_max - lambda_min) * (alpha_bar ** 2)
+                mask = (cos_sim > lambda_t).float().view(-1, 1, 1)  # [B, 1, 1]
+                
+                if logger:
+                    # Handle both scalar and tensor lambda_t
+                    if hasattr(lambda_t, 'numel') and lambda_t.numel() > 1:
+                        lambda_t_str = f"[{', '.join([f'{v:.3f}' for v in lambda_t.tolist()])}]"
+                    else:
+                        lambda_t_val = lambda_t.item() if hasattr(lambda_t, 'item') else lambda_t
+                        lambda_t_str = f"{lambda_t_val:.3f}"
+                    
+                    cos_sim_str = f"[{', '.join([f'{v:.2f}' for v in cos_sim.tolist()])}]"
+                    mask_active = int(mask.sum().item())
+                    logger.debug(f"[MASK DEBUG S:{step_counter:>3}] lambda_min={lambda_min:.3f} | lambda_max={lambda_max:.3f} | lambda_t={lambda_t_str} | cos_sim={cos_sim_str} | mask_active={mask_active}/{batch_size}")
+
+            
             delta_eps   = eps_cond - eps_uncond
             scale_eps2x0 = - (sqrt_1mab / sqrt_ab)
             scale_b = expand(scale_eps2x0)
@@ -730,77 +893,64 @@ def make_despec_fn(
 
         G_cfg = s0 * delta_x0
 
-        #GRAM-AMG
+        #GRAM-AMG - iterate over all batch elements, each with its own neighbors
         G_gram = torch.zeros_like(x0_cond) 
-        total_gram_loss = 0.0
+        total_gram_loss = torch.tensor(0.0, device=device, dtype=x0_cond.dtype)
         
         enable_gram_guidance = c_gram > 0 and step_counter >= gram_start_step
-        if enable_gram_guidance:
+        # Only compute GRAM gradients if guidance is enabled AND mask is active for at least one element
+        any_mask_active = mask.sum().item() > 0 if enable_gram_guidance else False
+        if enable_gram_guidance and any_mask_active:
             logger.debug(f"[DEBUG] Gram guidance enabled at step {step_counter} with c_gram={c_gram}")
 
-            if neighbor_embeddings_cache is None:
-                emb_matrix = get_emb_matrix(device)
-                with torch.no_grad():
-                    e_t_detached = e_t.detach()
-                    dists_to_et = torch.linalg.norm(emb_matrix - e_t_detached.unsqueeze(0), dim=1)
-                    max_neighbors = min(emb_matrix.shape[0], 511)
-                    k_neighbors = int(1 + round(gram_neighborhood_scale * (max_neighbors - 1)))
-                    topk_vals, topk_indices = torch.topk(dists_to_et, k=k_neighbors, largest=False)
-                    neighbor_embeddings_cache = emb_matrix[topk_indices]
-                    cached_radius = topk_vals[-1].item()
-                    cached_start_et = e_t_detached.clone()
-
-                    if logger:
-                        logger.debug(f"[DEBUG] Gram Init: Scale={gram_neighborhood_scale:.2f} -> Selected {k_neighbors} neighbors. Radius (K-th dist): {cached_radius:.4f}")
-
-
-            if neighbor_embeddings_cache is not None:
-                neighbor_embeddings = neighbor_embeddings_cache
-                if gram_use_normalized:
-                    e_t_for_volume = F.normalize(e_t, p=2, dim=0)
-                    neighbors_for_volume = F.normalize(neighbor_embeddings, p=2, dim=1)
-                else:
-                    e_t_for_volume = e_t
-                    neighbors_for_volume = neighbor_embeddings
-
-                A = torch.cat([e_t_for_volume.unsqueeze(0), neighbors_for_volume], dim=0)
-                log_volume = generalized_gram_volume(A, return_log=True) 
-
-                if log_volume is not None:
-                    # Maximize log(volume) -> minimize -log(volume)
-                    total_gram_loss = -log_volume
-                    if constrain_in_sphere:
-                        current_dist = torch.linalg.norm(e_t - cached_start_et)
-                        if current_dist > cached_radius:
-                            diff = current_dist - cached_radius
-                            dist_penalty = diff * 0.5
-                            total_gram_loss += dist_penalty 
-                    logger.debug(f"[DEBUG] Gram log-volume: {log_volume.item():.4f}, Total gram loss: {total_gram_loss.item():.4f}")
-                else:
-                    logger.debug("[DEBUG] Volume computation failed (None).")
+            if e_t_batch is None or len(neighbor_embeddings_list) == 0:
+                logger.warning("[DEBUG] GRAM guidance enabled but e_t_batch or neighbors missing - skipping")
             else:
-                logger.debug("[DEBUG] Gram guidance enabled but neighbor cache empty; skip volume.")
-             # Questo blocco è sicuro perché total_gram_loss è sempre definito
-            if total_gram_loss != 0.0:
+                # Compute GRAM loss only for ACTIVE batch elements (those above threshold)
+                active_gram_indices = [b for b in range(batch_size) if mask[b, 0, 0].item() > 0]
+                
+                for b in active_gram_indices:
+                    e_t_b = e_t_batch[b]  # [512] - current generated embedding
+                    neighbor_embeddings_b = neighbor_embeddings_list[b]  # [K, 512] - neighbors specific to this element
+                    
+                    if gram_use_normalized:
+                        e_t_for_volume = F.normalize(e_t_b, p=2, dim=0)
+                        neighbors_for_volume = F.normalize(neighbor_embeddings_b, p=2, dim=1)
+                    else:
+                        e_t_for_volume = e_t_b
+                        neighbors_for_volume = neighbor_embeddings_b
+
+                    # Build parallelotope matrix: [Generated, Neighbor1, Neighbor2, ...]
+                    # Shape: (1+K, 512)
+                    A = torch.cat([e_t_for_volume.unsqueeze(0), neighbors_for_volume], dim=0)
+                    log_volume = generalized_gram_volume(A, return_log=True) 
+
+                    if log_volume is not None:
+                        # Maximize log(volume) -> minimize -log(volume)
+                        # High volume = generated embedding is far from neighbors = good
+                        gram_loss_b = -log_volume
+                        total_gram_loss = total_gram_loss + gram_loss_b
+                        
+                if step_counter % 10 == 0 and logger:
+                    logger.debug(f"[DEBUG] Total Gram loss for {len(active_gram_indices)} active elements: {total_gram_loss.item():.4f}")
+        elif enable_gram_guidance and not any_mask_active:
+            if logger:
+                logger.debug(f"STEP {step_counter}: GRAM guidance skipped - no active elements (all below threshold).")
+                    
+            # Compute gradient from summed loss
+            if total_gram_loss != 0.0 and not isinstance(total_gram_loss, float):
                 try:
                     grad_gram_raw = torch.autograd.grad(total_gram_loss, x, retain_graph=True, allow_unused=True)[0]
                     
                     if grad_gram_raw is not None:
                         logger.debug(f"[DEBUG] Raw Grad Norm: {grad_gram_raw.norm().item():.4e}")
- 
-            
                         G_gram = -c_gram * expand(torch.sqrt(1 - alpha_bar)) * grad_gram_raw
-                    
                     else:
                         logger.debug("[DEBUG] Grad calc failed (grad_gram_raw is None).")
  
                 except RuntimeError as e:
                     logger.debug(f"[DEBUG] Grad calc ERROR: {e}")
                     pass
-
-        # Parabolic gating based on alpha_bar
-        # lambda_t = lambda_min + (lambda_max - lambda_min) * (alpha_bar ** 2)
-        # mask = (cos_sim > lambda_t).float().view(-1, *([1] * (G_spe.ndim - 1)))
 
         if amg_filter_enabled and G_gram.abs().sum() > 1e-6:
             logger.debug(f"[FFT FILTER] Applying AMG FFT lowpass filter with cutoff ratio {amg_cutoff_ratio:.2f}, AMG gradient shape before filter: {G_gram.shape}")

@@ -26,6 +26,8 @@ import argparse
 import json
 import os
 import re
+import tempfile
+import shutil
 from pathlib import Path
 from typing import List, Optional, Tuple
 import numpy as np
@@ -66,6 +68,60 @@ def find_matched_files(eval_dir: Path, baseline_dir: Path) -> Tuple[List[str], L
             print(f"[WARN] No baseline file found for ID {audio_id}")
     
     return eval_files, ref_files
+
+
+# Minimum audio duration in seconds for VGGish (uses 0.96s windows)
+VGGISH_MIN_DURATION = 1.0
+
+
+def _pad_audio_if_needed(file_path: str, model_name: str, target_sr: int, min_duration: float, temp_dir: str) -> str:
+    """Pad audio with zeros if too short for the model.
+    
+    Returns the original path if no padding needed, or a path to a padded temp file.
+    """
+    import soundfile as sf
+    
+    # Only VGGish needs padding (other models handle short audio internally)
+    if model_name.lower() != 'vggish':
+        return file_path
+    
+    try:
+        data, sr = sf.read(file_path)
+        
+        # Convert stereo to mono if needed
+        if data.ndim == 2:
+            data = data.mean(axis=1)
+        
+        duration = len(data) / sr
+        
+        if duration >= min_duration:
+            return file_path
+        
+        # Calculate samples needed for target duration at target sample rate
+        # Resample if needed
+        if sr != target_sr:
+            import scipy.signal
+            num_samples = int(len(data) * target_sr / sr)
+            data = scipy.signal.resample(data, num_samples)
+            sr = target_sr
+        
+        # Calculate padding needed
+        target_samples = int(min_duration * sr)
+        current_samples = len(data)
+        
+        if current_samples < target_samples:
+            # Pad with zeros at the end
+            padding = np.zeros(target_samples - current_samples, dtype=data.dtype)
+            data = np.concatenate([data, padding])
+        
+        # Save to temp file
+        temp_path = os.path.join(temp_dir, os.path.basename(file_path))
+        sf.write(temp_path, data, sr)
+        return temp_path
+        
+    except Exception:
+        # If anything fails, return original path and let fadtk handle it
+        return file_path
 
 
 def compute_fad(
@@ -111,135 +167,164 @@ def compute_fad(
     except Exception as e:
         raise SystemExit(f"fadtk is not available or get_all_models failed. Original error: {e}")
     
-    # Cache embeddings
-    if verbose:
-        print(f"[STEP] Caching reference embeddings... files={len(ref_files)}")
-    for f in ref_files:
-        try:
-            fad.cache_embedding_file(f)
-        except Exception as ex:
+    # Create temp directory for padded files (only used for VGGish)
+    temp_dir = None
+    file_mapping = {}  # Maps original path -> potentially padded path
+    
+    try:
+        if model_name.lower() == 'vggish':
+            temp_dir = tempfile.mkdtemp(prefix='fad_padded_')
             if verbose:
-                print(f"[WARN] Error caching ref {f}: {ex}")
-    
-    if verbose:
-        print(f"[STEP] Caching evaluation embeddings... files={len(eval_files)}")
-    for f in eval_files:
-        try:
-            fad.cache_embedding_file(f)
-        except Exception as ex:
-            if verbose:
-                print(f"[WARN] Error caching eval {f}: {ex}")
-    
-    def _to_2d(a: np.ndarray) -> np.ndarray:
-        """Ensure embeddings are 2D [T, D]."""
-        a = np.asarray(a)
-        if a.ndim == 1:
-            return a.reshape(1, -1)
-        if a.ndim > 2:
-            return a.reshape(-1, a.shape[-1])
-        return a
-    
-    # Load evaluation embeddings
-    eval_embs: List[np.ndarray] = []
-    eval_D: Optional[int] = None
-    _eval_loaded = 0
-    _eval_mismatch = 0
-    _eval_errors = 0
-    
-    for f in eval_files:
-        try:
-            arr = fad.read_embedding_file(f)
-            arr2 = _to_2d(arr)
-            if eval_D is None:
-                eval_D = arr2.shape[1]
-            elif arr2.shape[1] != eval_D:
-                _eval_mismatch += 1
-                continue
-            mean_vec = arr2.mean(axis=0, keepdims=True)
-            eval_embs.append(mean_vec)
-            _eval_loaded += 1
-        except Exception:
-            _eval_errors += 1
-    
-    if not eval_embs:
-        raise SystemExit('No evaluation embeddings could be loaded.')
-    
-    eval_mat = np.concatenate(eval_embs, axis=0)
-    if verbose:
-        print(f"[STEP] Eval embeddings ready | loaded={_eval_loaded}, mismatch={_eval_mismatch}, errors={_eval_errors}, shape={eval_mat.shape}")
-    
-    # Load reference embeddings
-    ref_embs: List[np.ndarray] = []
-    ref_D: Optional[int] = None
-    _ref_loaded = 0
-    _ref_mismatch = 0
-    _ref_errors = 0
-    
-    for f in ref_files:
-        try:
-            arr = fad.read_embedding_file(f)
-            arr2 = _to_2d(arr)
-            if ref_D is None:
-                ref_D = arr2.shape[1]
-            elif arr2.shape[1] != ref_D:
-                _ref_mismatch += 1
-                continue
-            mean_vec = arr2.mean(axis=0, keepdims=True)
-            ref_embs.append(mean_vec)
-            _ref_loaded += 1
-        except Exception:
-            _ref_errors += 1
-    
-    if not ref_embs:
-        raise SystemExit('No reference embeddings could be loaded.')
-    
-    ref_mat = np.concatenate(ref_embs, axis=0)
-    if verbose:
-        print(f"[STEP] Ref embeddings ready | loaded={_ref_loaded}, mismatch={_ref_mismatch}, errors={_ref_errors}, shape={ref_mat.shape}")
-    
-    # Optional dimensionality reduction
-    if reduce_dim is not None and reduce_dim > 0 and reduce_dim < ref_mat.shape[1]:
-        orig_D = ref_mat.shape[1]
-        fit_source = reduce_fit.lower()
+                print(f"[STEP] Checking audio durations for VGGish (min {VGGISH_MIN_DURATION}s)...")
+            
+            padded_count = 0
+            for f in ref_files + eval_files:
+                padded_path = _pad_audio_if_needed(f, model_name, ml.sr, VGGISH_MIN_DURATION, temp_dir)
+                file_mapping[f] = padded_path
+                if padded_path != f:
+                    padded_count += 1
+            
+            if verbose and padded_count > 0:
+                print(f"[STEP] Zero-padded {padded_count} short audio files to {VGGISH_MIN_DURATION}s")
+        else:
+            # No padding needed for other models
+            for f in ref_files + eval_files:
+                file_mapping[f] = f
         
-        if reduce_method.lower() == 'pca':
-            if fit_source == 'both':
-                fit_mat = np.vstack([ref_mat, eval_mat])
-            else:
-                fit_mat = ref_mat
-            mean = fit_mat.mean(axis=0)
-            Xc = fit_mat - mean
+        # Cache embeddings
+        if verbose:
+            print(f"[STEP] Caching reference embeddings... files={len(ref_files)}")
+        for f in ref_files:
             try:
-                U, S, Vt = np.linalg.svd(Xc, full_matrices=False)
-            except np.linalg.LinAlgError:
-                cov = np.cov(Xc, rowvar=False)
-                S, V = np.linalg.eigh(cov)
-                idx = np.argsort(S)[::-1]
-                Vt = V[:, idx].T
-            W = Vt[:reduce_dim].T
-            ref_mat = (ref_mat - mean) @ W
-            eval_mat = (eval_mat - mean) @ W
-        elif reduce_method.lower() in ('random', 'rp'):
-            from numpy.random import default_rng
-            rng = default_rng(42)
-            W = rng.standard_normal((orig_D, reduce_dim))
-            W, _ = np.linalg.qr(W)
-            W = W[:, :reduce_dim]
-            ref_mat = ref_mat @ W
-            eval_mat = eval_mat @ W
+                fad.cache_embedding_file(file_mapping[f])
+            except Exception as ex:
+                if verbose:
+                    print(f"[WARN] Error caching ref {f}: {ex}")
         
         if verbose:
-            print(f"[STEP] Dim reduction: {reduce_method}, {orig_D} -> {ref_mat.shape[1]}")
+            print(f"[STEP] Caching evaluation embeddings... files={len(eval_files)}")
+        for f in eval_files:
+            try:
+                fad.cache_embedding_file(file_mapping[f])
+            except Exception as ex:
+                if verbose:
+                    print(f"[WARN] Error caching eval {f}: {ex}")
+        
+        def _to_2d(a: np.ndarray) -> np.ndarray:
+            """Ensure embeddings are 2D [T, D]."""
+            a = np.asarray(a)
+            if a.ndim == 1:
+                return a.reshape(1, -1)
+            if a.ndim > 2:
+                return a.reshape(-1, a.shape[-1])
+            return a
+        
+        # Load evaluation embeddings
+        eval_embs: List[np.ndarray] = []
+        eval_D: Optional[int] = None
+        _eval_loaded = 0
+        _eval_mismatch = 0
+        _eval_errors = 0
+        
+        for f in eval_files:
+            try:
+                arr = fad.read_embedding_file(file_mapping[f])
+                arr2 = _to_2d(arr)
+                if eval_D is None:
+                    eval_D = arr2.shape[1]
+                elif arr2.shape[1] != eval_D:
+                    _eval_mismatch += 1
+                    continue
+                mean_vec = arr2.mean(axis=0, keepdims=True)
+                eval_embs.append(mean_vec)
+                _eval_loaded += 1
+            except Exception:
+                _eval_errors += 1
+        
+        if not eval_embs:
+            raise SystemExit('No evaluation embeddings could be loaded.')
+        
+        eval_mat = np.concatenate(eval_embs, axis=0)
+        if verbose:
+            print(f"[STEP] Eval embeddings ready | loaded={_eval_loaded}, mismatch={_eval_mismatch}, errors={_eval_errors}, shape={eval_mat.shape}")
+        
+        # Load reference embeddings
+        ref_embs: List[np.ndarray] = []
+        ref_D: Optional[int] = None
+        _ref_loaded = 0
+        _ref_mismatch = 0
+        _ref_errors = 0
+        
+        for f in ref_files:
+            try:
+                arr = fad.read_embedding_file(file_mapping[f])
+                arr2 = _to_2d(arr)
+                if ref_D is None:
+                    ref_D = arr2.shape[1]
+                elif arr2.shape[1] != ref_D:
+                    _ref_mismatch += 1
+                    continue
+                mean_vec = arr2.mean(axis=0, keepdims=True)
+                ref_embs.append(mean_vec)
+                _ref_loaded += 1
+            except Exception:
+                _ref_errors += 1
+        
+        if not ref_embs:
+            raise SystemExit('No reference embeddings could be loaded.')
+        
+        ref_mat = np.concatenate(ref_embs, axis=0)
+        if verbose:
+            print(f"[STEP] Ref embeddings ready | loaded={_ref_loaded}, mismatch={_ref_mismatch}, errors={_ref_errors}, shape={ref_mat.shape}")
+        
+        # Optional dimensionality reduction
+        if reduce_dim is not None and reduce_dim > 0 and reduce_dim < ref_mat.shape[1]:
+            orig_D = ref_mat.shape[1]
+            fit_source = reduce_fit.lower()
+            
+            if reduce_method.lower() == 'pca':
+                if fit_source == 'both':
+                    fit_mat = np.vstack([ref_mat, eval_mat])
+                else:
+                    fit_mat = ref_mat
+                mean = fit_mat.mean(axis=0)
+                Xc = fit_mat - mean
+                try:
+                    U, S, Vt = np.linalg.svd(Xc, full_matrices=False)
+                except np.linalg.LinAlgError:
+                    cov = np.cov(Xc, rowvar=False)
+                    S, V = np.linalg.eigh(cov)
+                    idx = np.argsort(S)[::-1]
+                    Vt = V[:, idx].T
+                W = Vt[:reduce_dim].T
+                ref_mat = (ref_mat - mean) @ W
+                eval_mat = (eval_mat - mean) @ W
+            elif reduce_method.lower() in ('random', 'rp'):
+                from numpy.random import default_rng
+                rng = default_rng(42)
+                W = rng.standard_normal((orig_D, reduce_dim))
+                W, _ = np.linalg.qr(W)
+                W = W[:, :reduce_dim]
+                ref_mat = ref_mat @ W
+                eval_mat = eval_mat @ W
+            
+            if verbose:
+                print(f"[STEP] Dim reduction: {reduce_method}, {orig_D} -> {ref_mat.shape[1]}")
+        
+        # Compute statistics and FAD
+        mu_ref, cov_ref = calc_embd_statistics(ref_mat)
+        mu_eval, cov_eval = calc_embd_statistics(eval_mat)
+        
+        if verbose:
+            print(f"[STEP] Stats | mu_ref={mu_ref.shape}, cov_ref={cov_ref.shape}")
+        
+        fad_score = float(calc_frechet_distance(mu_ref, cov_ref, mu_eval, cov_eval))
+        return fad_score
     
-    # Compute statistics and FAD
-    mu_ref, cov_ref = calc_embd_statistics(ref_mat)
-    mu_eval, cov_eval = calc_embd_statistics(eval_mat)
-    
-    if verbose:
-        print(f"[STEP] Stats | mu_ref={mu_ref.shape}, cov_ref={cov_ref.shape}")
-    
-    fad_score = float(calc_frechet_distance(mu_ref, cov_ref, mu_eval, cov_eval))
-    return fad_score
+    finally:
+        # Clean up temporary directory with padded files
+        if temp_dir is not None and os.path.exists(temp_dir):
+            shutil.rmtree(temp_dir, ignore_errors=True)
 
 
 def main():
@@ -291,7 +376,7 @@ Examples:
     
     # Handle 'all' model option
     if args.model.lower() == 'all':
-        models_to_run = ['vggish', 'clap-laion-music', 'MERT-v1-95M']
+        models_to_run = ['vggish', 'clap-laion-audio', 'MERT-v1-95M']
     else:
         models_to_run = [args.model]
     

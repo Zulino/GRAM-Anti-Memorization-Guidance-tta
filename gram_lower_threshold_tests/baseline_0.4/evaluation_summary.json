@@ -1,0 +1,31 @@
+{
+    "timestamp": "2026-02-02 19:08:51",
+    "num_subdirectories": 1,
+    "overall_means": {
+        "global_avg_sim": 0.007494043093174696,
+        "global_avg_sim_std": 0.0,
+        "global_avg_max_sim": 0.36509639024734497,
+        "global_avg_max_sim_std": 0.0,
+        "avg_target_sim": 0.0034014477860182524,
+        "avg_target_sim_std": 0.0,
+        "max_target_sim": 0.31538859009742737,
+        "max_target_sim_std": 0.0,
+        "avg_prompt_adherence": -0.12312217801809311,
+        "avg_prompt_adherence_std": 0.0,
+        "intra_list_diversity": 0.37880927324295044,
+        "intra_list_diversity_std": 0.0,
+        "total_variance": 0.3788093328475952,
+        "total_variance_std": 0.0
+    },
+    "per_subdirectory_results": {
+        "1": {
+            "global_avg_sim": 0.007494043093174696,
+            "global_avg_max_sim": 0.36509639024734497,
+            "avg_target_sim": 0.0034014477860182524,
+            "max_target_sim": 0.31538859009742737,
+            "avg_prompt_adherence": -0.12312217801809311,
+            "intra_list_diversity": 0.37880927324295044,
+            "total_variance": 0.3788093328475952
+        }
+    }
+}

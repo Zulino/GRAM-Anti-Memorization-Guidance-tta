@@ -22,8 +22,73 @@ from stable_audio_tools.inference import amg_generation
 EMBEDDINGS_FILE = 'embeddings_new.json'
 CLUSTERS_FILE = 'clusters.json'  # Cluster ID -> list of member IDs
 CLUSTER_REPRESENTATIVES_FILE = 'cluster_representatives.csv'  # Cluster ID -> representative ID
+DATASET_DIR = 'soundDataset'  # Directory with original audio files for on-the-fly embedding extraction
 DEVICE = "cuda:1" if torch.cuda.is_available() else "cpu"
 MAX_TRAIN_EMBEDDINGS = 512  # Maximum number of training embeddings to visualize
+
+
+def extract_dataset_embeddings(clap_model, train_data, device, dataset_dir=DATASET_DIR):
+    """
+    Extract embeddings from audio files using the specified CLAP model.
+    This is used when a different CLAP model is selected (not clap-laion-audio).
+    
+    Args:
+        clap_model: Loaded CLAP model instance
+        train_data: Dict from embeddings_new.json (for IDs and conditioning)
+        device: Device to use
+        dataset_dir: Path to soundDataset directory
+    
+    Returns:
+        dict: sound_id -> embedding tensor
+    """
+    print(f"\nExtracting embeddings from {dataset_dir} using current CLAP model...")
+    print(f"This may take a while for {len(train_data)} files...")
+    
+    embeddings_dict = {}
+    missing_files = []
+    
+    sound_ids = sorted(list(train_data.keys()))
+    
+    for sound_id in tqdm(sound_ids, desc="Extracting embeddings"):
+        audio_path = os.path.join(dataset_dir, f"sound_{sound_id}.wav")
+        
+        if not os.path.exists(audio_path):
+            missing_files.append(sound_id)
+            # Use zero embedding as placeholder
+            embeddings_dict[sound_id] = torch.zeros(512, device=device)
+            continue
+        
+        try:
+            # Load and preprocess audio
+            audio, sr = torchaudio.load(audio_path)
+            
+            # Resample to 48000 if needed
+            if sr != 48000:
+                resampler = torchaudio.transforms.Resample(sr, 48000)
+                audio = resampler(audio)
+            
+            # Normalize
+            audio = audio.to(torch.float32)
+            peak = audio.abs().max().clamp_min(1e-6)
+            audio = (audio / peak).clamp(-1, 1)
+            
+            # Get mono
+            mono_audio = audio.mean(dim=0, keepdim=True).to(device)
+            
+            with torch.no_grad():
+                emb = clap_model.get_audio_embedding_from_data(x=mono_audio, use_tensor=True)[0]
+                embeddings_dict[sound_id] = emb.to(device)
+                
+        except Exception as e:
+            print(f"  Error processing {audio_path}: {e}")
+            embeddings_dict[sound_id] = torch.zeros(512, device=device)
+            missing_files.append(sound_id)
+    
+    if missing_files:
+        print(f"  Warning: {len(missing_files)} files missing or failed to process")
+    
+    print(f"  Extracted {len(embeddings_dict)} embeddings")
+    return embeddings_dict
 
 
 def load_clusters_json(json_path):
@@ -479,6 +544,44 @@ def process_subdir(subdir_path, subdir_name, train_data, train_ids,
     return metrics
 
 
+def parse_cluster_range(range_str):
+    """
+    Parse cluster range string.
+    
+    Args:
+        range_str: String like "0-10" or "5" or None
+    
+    Returns:
+        set of cluster numbers (as strings), or None if no filtering
+    """
+    if range_str is None:
+        return None
+    
+    range_str = range_str.strip()
+    
+    # Check for range format "0-10"
+    if '-' in range_str:
+        parts = range_str.split('-')
+        if len(parts) == 2:
+            try:
+                start = int(parts[0].strip())
+                end = int(parts[1].strip())
+                return set(str(i) for i in range(start, end + 1))
+            except ValueError:
+                print(f"Warning: Invalid cluster range '{range_str}', ignoring filter")
+                return None
+    else:
+        # Single cluster
+        try:
+            cluster_id = int(range_str.strip())
+            return {str(cluster_id)}
+        except ValueError:
+            print(f"Warning: Invalid cluster ID '{range_str}', ignoring filter")
+            return None
+    
+    return None
+
+
 def find_all_leaf_dirs_with_wav(base_dir):
     """Recursively find all directories that contain wav files."""
     leaf_dirs = []
@@ -491,9 +594,14 @@ def find_all_leaf_dirs_with_wav(base_dir):
     return sorted(leaf_dirs)
 
 
-def detect_nested_structure(input_dir, leaf_dirs):
+def detect_nested_structure(input_dir, leaf_dirs, cluster_filter_set=None):
     """
     Detect if there's a nested structure (config -> cluster folders).
+    
+    Args:
+        input_dir: Base directory
+        leaf_dirs: List of leaf directories with wav files
+        cluster_filter_set: Optional set of cluster IDs (as strings) to filter
     
     Returns:
         dict or None: If nested structure detected, returns:
@@ -525,6 +633,23 @@ def detect_nested_structure(input_dir, leaf_dirs):
             config_name = parts[0]
             cluster_name = parts[1]
             
+            # Apply cluster filter if specified
+            if cluster_filter_set is not None:
+                # Try to extract cluster number from folder name
+                # Folder might be just "0", "1", etc. or "cluster_0", etc.
+                cluster_num = None
+                if cluster_name.isdigit():
+                    cluster_num = cluster_name
+                elif cluster_name.startswith('cluster_'):
+                    try:
+                        cluster_num = cluster_name.split('_')[1]
+                    except IndexError:
+                        pass
+                
+                # Skip if cluster doesn't match filter
+                if cluster_num is None or cluster_num not in cluster_filter_set:
+                    continue
+            
             if config_name not in configs:
                 configs[config_name] = {
                     'path': os.path.join(input_dir, config_name),
@@ -532,8 +657,8 @@ def detect_nested_structure(input_dir, leaf_dirs):
                 }
             configs[config_name]['clusters'].append(cluster_name)
         
-        # Verify all configs have multiple clusters (at least 2)
-        if all(len(c['clusters']) >= 2 for c in configs.values()):
+        # Verify all configs have at least 1 cluster
+        if configs and all(len(c['clusters']) >= 1 for c in configs.values()):
             print(f"\nDetected nested structure with {len(configs)} configurations:")
             for config_name, config_data in configs.items():
                 print(f"  - {config_name}: {len(config_data['clusters'])} clusters")
@@ -611,11 +736,26 @@ def main():
         action='store_true',
         help='Skip generating visualization plots (faster processing)'
     )
+    parser.add_argument(
+        '--cluster-range',
+        type=str,
+        default=None,
+        help='Range of clusters to analyze (e.g., "0-10" for clusters 0 to 10, or "5" for cluster 5 only)'
+    )
+    parser.add_argument(
+        '--clap-model',
+        type=str,
+        default='clap-laion-music',
+        choices=['clap-laion-audio', 'clap-laion-music', 'clap-laion-music-base'],
+        help='CLAP model to use: clap-laion-audio (general audio, HTSAT-tiny), clap-laion-music (music, HTSAT-tiny), or clap-laion-music-base (music, HTSAT-base) (default: clap-laion-music)'
+    )
     args = parser.parse_args()
     
     input_dir = os.path.abspath(args.input_dir)
     device = args.device
     viz_scale = max(0.0, min(1.0, args.viz_scale))  # Clamp to 0-1
+    cluster_filter_set = parse_cluster_range(args.cluster_range)
+    clap_model = args.clap_model
     
     if not os.path.isdir(input_dir):
         print(f"Error: {input_dir} is not a valid directory")
@@ -624,20 +764,24 @@ def main():
     print(f"Using device: {device}")
     print(f"Input directory: {input_dir}")
     print(f"Visualization scale: {viz_scale:.2f} ({int(viz_scale * MAX_TRAIN_EMBEDDINGS)} max training embeddings)")
+    print(f"CLAP model: {clap_model}")
     if args.skip_plots:
         print("Plot generation: DISABLED")
+    if cluster_filter_set is not None:
+        cluster_list = sorted([int(c) for c in cluster_filter_set])
+        print(f"Cluster filter: {min(cluster_list)}-{max(cluster_list)} ({len(cluster_list)} clusters)")
     
-    # --- LOAD TRAINING DATA ---
-    print("Loading training embeddings...")
+    # --- LOAD TRAINING DATA (conditioning info) ---
+    print("Loading training data...")
     with open(EMBEDDINGS_FILE, 'r') as f:
         train_data = json.load(f)
     
     train_ids = sorted(list(train_data.keys()))
-    train_embeddings = torch.stack([
-        torch.tensor(train_data[sound_id]['embedding'], dtype=torch.float32)
-        for sound_id in train_ids
-    ], dim=0).to(device)
-    train_embeddings_norm = F.normalize(train_embeddings, p=2, dim=1)
+    
+    # NOTE: Embeddings will be loaded/extracted AFTER CLAP model is loaded
+    # to ensure we use the correct model for embedding extraction
+    train_embeddings = None
+    train_embeddings_norm = None
     
     # --- LOAD CLUSTER DATA ---
     clusters = load_clusters_json(CLUSTERS_FILE)
@@ -646,16 +790,103 @@ def main():
     print(f"Loaded {len(rep_to_cluster)} cluster representatives")
     
     # --- LOAD CLAP MODEL ---
-    print("Loading CLAP model...")
-    CLAP = amg_generation.laion_clap.CLAP_Module(enable_fusion=False, device=device)
-    CLAP.load_ckpt()
+    print(f"Loading CLAP model: {clap_model}...")
+    # Clear GPU cache before loading new model
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
     
+    # Map fadtk model names to laion_clap parameters
+    if clap_model == 'clap-laion-music':
+        # Music model: HTSAT-tiny with music_audioset checkpoint (from laion_clap defaults)
+        CLAP = amg_generation.laion_clap.CLAP_Module(enable_fusion=False, amodel="HTSAT-tiny", device=device)
+        CLAP.load_ckpt(model_id=1)  # model_id=1 loads music_audioset checkpoint
+        print("  -> Loaded CLAP music model (HTSAT-tiny, music_audioset checkpoint)")
+    elif clap_model == 'clap-laion-audio':
+        # Audio model: HTSAT-tiny with LAION-Audio-630K checkpoint
+        CLAP = amg_generation.laion_clap.CLAP_Module(enable_fusion=False, device=device)
+        CLAP.load_ckpt()  # model_id=0 loads general audio checkpoint
+        print("  -> Loaded CLAP audio model (HTSAT-tiny, LAION-Audio-630K checkpoint)")
+    elif clap_model == 'clap-laion-music-base':
+        # Music model: HTSAT-base with custom music_audioset checkpoint
+        checkpoint_path = os.path.join(
+            os.path.dirname(__file__), 
+            'model_cache/clap_checkpoints/music_audioset_epoch_15_esc_90.14.pt'
+        )
+        if not os.path.exists(checkpoint_path):
+            raise FileNotFoundError(f"CLAP checkpoint not found at {checkpoint_path}")
+        CLAP = amg_generation.laion_clap.CLAP_Module(enable_fusion=False, amodel="HTSAT-base", device=device)
+        CLAP.load_ckpt(checkpoint_path)  # Load custom checkpoint
+        print(f"  -> Loaded CLAP music model (HTSAT-base, custom checkpoint from {checkpoint_path})")
+    else:
+        raise ValueError(f"Unknown CLAP model: {clap_model}")
+    
+    # Set model to eval mode and disable gradients
+    CLAP.eval()
+    for param in CLAP.parameters():
+        param.requires_grad = False
+
+    # --- LOAD/EXTRACT TRAINING EMBEDDINGS ---
+    # If using clap-laion-audio (same as amg_generation.py), use pre-computed embeddings from JSON
+    # Otherwise, extract embeddings on-the-fly from soundDataset using the current CLAP model
+    if clap_model == 'clap-laion-audio':
+        print("Using pre-computed embeddings from JSON (compatible with amg_generation.py)...")
+        train_embeddings = torch.stack([
+            torch.tensor(train_data[sound_id]['embedding'], dtype=torch.float32)
+            for sound_id in train_ids
+        ], dim=0).to(device)
+    else:
+        print(f"CLAP model '{clap_model}' differs from amg_generation.py - extracting fresh embeddings...")
+        extracted_embeddings = extract_dataset_embeddings(CLAP, train_data, device, DATASET_DIR)
+        train_embeddings = torch.stack([
+            extracted_embeddings[sound_id] if isinstance(extracted_embeddings[sound_id], torch.Tensor) 
+            else torch.tensor(extracted_embeddings[sound_id], dtype=torch.float32)
+            for sound_id in train_ids
+        ], dim=0).to(device)
+        
+        # Also update train_data with extracted embeddings for use in process_subdir
+        for sound_id in train_ids:
+            emb = extracted_embeddings[sound_id]
+            if isinstance(emb, torch.Tensor):
+                train_data[sound_id]['embedding'] = emb.cpu().tolist()
+            else:
+                train_data[sound_id]['embedding'] = emb
+    
+    train_embeddings_norm = F.normalize(train_embeddings, p=2, dim=1)
+    print(f"Train embeddings shape: {train_embeddings.shape}")
+
     # --- FIND ALL DIRECTORIES WITH WAV FILES ---
-    leaf_dirs = find_all_leaf_dirs_with_wav(input_dir)
-    print(f"Found {len(leaf_dirs)} directories with wav files to process")
+    all_leaf_dirs = find_all_leaf_dirs_with_wav(input_dir)
+    
+    # --- FILTER BY CLUSTER RANGE IF SPECIFIED ---
+    if cluster_filter_set is not None:
+        leaf_dirs = []
+        for leaf in all_leaf_dirs:
+            rel_path = os.path.relpath(leaf, input_dir)
+            parts = rel_path.split(os.sep)
+            # Check if this is a cluster directory
+            if len(parts) >= 2:
+                cluster_name = parts[-1]  # Last part is cluster folder
+                cluster_num = None
+                if cluster_name.isdigit():
+                    cluster_num = cluster_name
+                elif cluster_name.startswith('cluster_'):
+                    try:
+                        cluster_num = cluster_name.split('_')[1]
+                    except IndexError:
+                        pass
+                
+                if cluster_num in cluster_filter_set:
+                    leaf_dirs.append(leaf)
+            else:
+                # Not a nested structure, include all
+                leaf_dirs.append(leaf)
+        print(f"Found {len(all_leaf_dirs)} total directories, processing {len(leaf_dirs)} after cluster filter")
+    else:
+        leaf_dirs = all_leaf_dirs
+        print(f"Found {len(leaf_dirs)} directories with wav files to process")
     
     # --- DETECT NESTED STRUCTURE ---
-    nested_structure = detect_nested_structure(input_dir, leaf_dirs)
+    nested_structure = detect_nested_structure(input_dir, leaf_dirs, cluster_filter_set)
     
     all_results = {}
     config_results = {}  # For aggregated results per configuration
@@ -721,13 +952,31 @@ def main():
         print(f"  Avg Prompt Adherence:      {overall_means.get('avg_prompt_adherence', 0):.4f} ± {overall_means.get('avg_prompt_adherence_std', 0):.4f}")
         print(f"  Intra-list Diversity:      {overall_means.get('intra_list_diversity', 0):.4f} ± {overall_means.get('intra_list_diversity_std', 0):.4f}")
     
-    # Save summary with overall means
+    # Compute aggregated results by configuration BEFORE saving summary
+    aggregated_by_config = {}
+    if nested_structure and config_results:
+        for config_name, cluster_metrics in config_results.items():
+            aggregated = compute_aggregated_metrics(cluster_metrics)
+            if aggregated:
+                aggregated_by_config[config_name] = {
+                    'num_clusters': aggregated['num_clusters'],
+                    'mean_metrics': aggregated['mean_metrics'],
+                    'std_metrics': aggregated['std_metrics'],
+                    'per_cluster_results': cluster_metrics  # Include individual cluster results
+                }
+    
+    # Save summary with overall means AND per-config aggregated results
     summary_data = {
         'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         'num_subdirectories': len(all_results),
         'overall_means': overall_means,
         'per_subdirectory_results': all_results
     }
+    
+    # Add aggregated by config if available
+    if aggregated_by_config:
+        summary_data['aggregated_by_config'] = aggregated_by_config
+    
     summary_path = os.path.join(input_dir, "evaluation_summary.json")
     with open(summary_path, 'w') as f:
         json.dump(summary_data, f, indent=4)
@@ -762,7 +1011,7 @@ def main():
                 with open(config_summary_path, 'w') as f:
                     json.dump(aggregated, f, indent=4)
                 print(f"  Saved to: {config_summary_path}")
-        
+        []
         # Save global aggregated summary
         global_aggregated_path = os.path.join(input_dir, "aggregated_by_config.json")
         

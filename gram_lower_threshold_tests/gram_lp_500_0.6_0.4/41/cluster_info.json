@@ -1,0 +1,7 @@
+{
+  "cluster_id": 41,
+  "representative_id": "4826",
+  "prompt": "This sample is part of the \"PPG\r\nMULTISAMPLE 010 Little Mad Dance\" sample pack. It is a digital sound\r\nwith a melodic element in it and some wild variations when changing\r\nfrom pitch across the keyboard. Especially the higher notes on the\r\nkeyboard have some harsh digital distortion. In the sample pack there\r\nare 16 samples evenly spread across 5 octaves (C1 till C6). The note in\r\nthe sample name (C, E or G#) does not indicate the pitch of the sound\r\nbut the key on my keyboard. The sound was created on the PPG VSTi. After that normalising and fades where applied within Cubase SX.",
+  "duration": 3.1995691609977324,
+  "batch_size": 100
+}

@@ -1,0 +1,7 @@
+{
+  "cluster_id": 31,
+  "representative_id": "4567",
+  "prompt": "This is loop 52 in a series of 135 loops that belong  together. They all have a deep dubspace feel in 1 bar 4/4 at 60 bpm and belong to the \"Convoloops pack 02 - bare bone dubspace 60 bpm\" sample pack. They all have the same name: \"convoluted bare bone loop 60 bpm\"\r\nwith three numbers as suffix. The first of the three numbers indicates\r\na group of samples with a similar sound and feel. The most rhythmic\r\nones are these with 1 till 4 as last number in the suffix and these\r\nwith 5 till 8 are more effects. Finally number 9 as the last number in\r\nthe suffix is the start of the delay and/or reverb\r\ntail of the previous loop. The second number separates variations in\r\npitch of the initial loop before any processing is applied. Of these\r\nvariations number 5 is more granular &amp; experimental. All loops were\r\ncreated using the microtonik VSTi.\r\nI took the bare bones preset and convoluted it with some variations of\r\nitself. After this process I added some more convolution with another\r\nSIR, some diffusion, delay &amp; chorus with the Fusion Reflector\r\nensemble from Native Instruments Reaktor, and some more character with (you never guess it) the excellent Character plugin from my TC powercore firewire. All this was done within Cubase SX.\r\nAfter that I mastered these loops within Wavelab using several plugins:\r\nfades, equalising, multiband compressing, limiting &amp; dither.\r\n",
+  "duration": 1.9991383219954648,
+  "batch_size": 100
+}

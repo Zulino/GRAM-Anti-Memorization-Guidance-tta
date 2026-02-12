@@ -1,0 +1,7 @@
+{
+  "cluster_id": 42,
+  "representative_id": "5100",
+  "prompt": "\"Attack loop 114 bpm-06.wav\" is part of the \"ATTACK LOOP 5\" sample pack. It is a one measure 4/4 drumloop at 114 bpm, created with the Waldorf Attack VSTi within Cubase SX.\r\nThe loop has a low tempo electro feel with some expressive bass sounds,\r\nmost of them having a pitch of C. The drumloop for loops 00 till 09 is\r\nalways the same. The variation is in the bass. Loops 08 and 09 contain\r\nthe drums only, where 09 is the most stripped version of the two.\r\nMastering (EQ, Stereo Enhancer, Multi-Band expand/compress/limit, dither, fades at start and/or end) done within Wavelab.\r\n",
+  "duration": 4.210544217687075,
+  "batch_size": 100
+}

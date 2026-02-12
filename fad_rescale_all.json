@@ -1,12 +1,12 @@
 {
-  "eval_dir": "spectralAnalysis_fad/no_amg/random_prompts",
+  "eval_dir": "spectralAnalysis_fad/gram_lp_250_0.3/random_prompts",
   "baseline_dir": "/mnt/media/HDD_4TB/riccardo/GRAM-AMG/soundDataset",
   "sample_rate": 16000,
-  "n_eval_files": 951,
-  "n_ref_files": 951,
+  "n_eval_files": 959,
+  "n_ref_files": 959,
   "results": {
-    "vggish": 2.0177655828235785,
-    "clap-laion-music": 0.15923520288489135,
-    "MERT-v1-95M": 5.425859964858354
+    "vggish": 1.4190106547546648,
+    "clap-laion-audio": 0.13915041347617674,
+    "MERT-v1-95M": 4.948688319320915
   }
 }

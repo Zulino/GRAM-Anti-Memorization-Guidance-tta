@@ -1,0 +1,153 @@
+{
+    "timestamp": "2026-02-11 12:42:55",
+    "num_configurations": 7,
+    "configurations": {
+        "baseline_0.4": {
+            "num_clusters": 9,
+            "mean_metrics": {
+                "global_avg_sim": 0.09791496809985903,
+                "global_avg_max_sim": 0.6795999341540866,
+                "avg_target_sim": 0.138967781741586,
+                "max_target_sim": 0.37922707200050354,
+                "avg_prompt_adherence": 0.14173376156638065,
+                "intra_list_diversity": 0.46278589963912964,
+                "total_variance": 0.4627859459982978
+            },
+            "std_metrics": {
+                "global_avg_sim": 0.017085388307174484,
+                "global_avg_max_sim": 0.06872204618042531,
+                "avg_target_sim": 0.0671786133558895,
+                "max_target_sim": 0.10122608293421513,
+                "avg_prompt_adherence": 0.06707234789560795,
+                "intra_list_diversity": 0.05970729894037664,
+                "total_variance": 0.05970730030276157
+            }
+        },
+        "gram_hp_250_0.6_0.4": {
+            "num_clusters": 9,
+            "mean_metrics": {
+                "global_avg_sim": 0.09064909236298667,
+                "global_avg_max_sim": 0.67816780673133,
+                "avg_target_sim": 0.226097103415264,
+                "max_target_sim": 0.46198586954010856,
+                "avg_prompt_adherence": 0.20214694738388062,
+                "intra_list_diversity": 0.3221992254257202,
+                "total_variance": 0.3221992842025227
+            },
+            "std_metrics": {
+                "global_avg_sim": 0.01400565367238197,
+                "global_avg_max_sim": 0.058439265640614864,
+                "avg_target_sim": 0.11601986855353416,
+                "max_target_sim": 0.15295383517764813,
+                "avg_prompt_adherence": 0.06633842459837876,
+                "intra_list_diversity": 0.09691997750273416,
+                "total_variance": 0.09691996918888277
+            }
+        },
+        "gram_lp_250_0.3_0.4": {
+            "num_clusters": 9,
+            "mean_metrics": {
+                "global_avg_sim": 0.09179792470402187,
+                "global_avg_max_sim": 0.6730718811353048,
+                "avg_target_sim": 0.21830938715073797,
+                "max_target_sim": 0.4456108932693799,
+                "avg_prompt_adherence": 0.20243900848759544,
+                "intra_list_diversity": 0.3361736536026001,
+                "total_variance": 0.3361737024452951
+            },
+            "std_metrics": {
+                "global_avg_sim": 0.014426906851223505,
+                "global_avg_max_sim": 0.0613780602976891,
+                "avg_target_sim": 0.12220392544028985,
+                "max_target_sim": 0.14707423764304475,
+                "avg_prompt_adherence": 0.08821387026474603,
+                "intra_list_diversity": 0.11269317668164795,
+                "total_variance": 0.11269315309729984
+            }
+        },
+        "gram_lp_250_0.6_0.4": {
+            "num_clusters": 9,
+            "mean_metrics": {
+                "global_avg_sim": 0.09291250755389531,
+                "global_avg_max_sim": 0.6741719179683261,
+                "avg_target_sim": 0.21658156977759468,
+                "max_target_sim": 0.43381454547246295,
+                "avg_prompt_adherence": 0.20694126395715606,
+                "intra_list_diversity": 0.3390538990497589,
+                "total_variance": 0.33905395368735
+            },
+            "std_metrics": {
+                "global_avg_sim": 0.013776562916197716,
+                "global_avg_max_sim": 0.060591472929666546,
+                "avg_target_sim": 0.11723618275823951,
+                "max_target_sim": 0.12748411903450801,
+                "avg_prompt_adherence": 0.08782294244999465,
+                "intra_list_diversity": 0.11968263197464438,
+                "total_variance": 0.11968262066908052
+            }
+        },
+        "gram_lp_500_0.6_0.4": {
+            "num_clusters": 9,
+            "mean_metrics": {
+                "global_avg_sim": 0.09350635359684627,
+                "global_avg_max_sim": 0.6772340403662788,
+                "avg_target_sim": 0.17555991932749748,
+                "max_target_sim": 0.41748887797196704,
+                "avg_prompt_adherence": 0.178953910453452,
+                "intra_list_diversity": 0.37700064645873177,
+                "total_variance": 0.37700069612926906
+            },
+            "std_metrics": {
+                "global_avg_sim": 0.01315544412080479,
+                "global_avg_max_sim": 0.06010815473052429,
+                "avg_target_sim": 0.11355364456503717,
+                "max_target_sim": 0.12640943440510594,
+                "avg_prompt_adherence": 0.09351047249368231,
+                "intra_list_diversity": 0.11877252397409474,
+                "total_variance": 0.11877251278994903
+            }
+        },
+        "gram_no_filt_250_0.6_0.4": {
+            "num_clusters": 9,
+            "mean_metrics": {
+                "global_avg_sim": 0.09093337423271602,
+                "global_avg_max_sim": 0.6746209330028958,
+                "avg_target_sim": 0.20140861223141351,
+                "max_target_sim": 0.41941624134778976,
+                "avg_prompt_adherence": 0.19048846802777714,
+                "intra_list_diversity": 0.3581095271640354,
+                "total_variance": 0.35810958594083786
+            },
+            "std_metrics": {
+                "global_avg_sim": 0.013987694280170916,
+                "global_avg_max_sim": 0.058789672516299955,
+                "avg_target_sim": 0.11144948816803708,
+                "max_target_sim": 0.13547204391659096,
+                "avg_prompt_adherence": 0.06794189440156738,
+                "intra_list_diversity": 0.0983195696409583,
+                "total_variance": 0.09831956038731055
+            }
+        },
+        "no_amg": {
+            "num_clusters": 10,
+            "mean_metrics": {
+                "global_avg_sim": 0.09650062844157219,
+                "global_avg_max_sim": 0.7052329421043396,
+                "avg_target_sim": 0.3067446175031364,
+                "max_target_sim": 0.5237045839428902,
+                "avg_prompt_adherence": 0.2577984821051359,
+                "intra_list_diversity": 0.2814626216888428,
+                "total_variance": 0.28146268874406816
+            },
+            "std_metrics": {
+                "global_avg_sim": 0.015853947903573928,
+                "global_avg_max_sim": 0.07986287400869065,
+                "avg_target_sim": 0.1426001739150556,
+                "max_target_sim": 0.14930780905445773,
+                "avg_prompt_adherence": 0.09286504671671074,
+                "intra_list_diversity": 0.1367104033261376,
+                "total_variance": 0.13671037061147684
+            }
+        }
+    }
+}

@@ -74,8 +74,8 @@ model = model.to(device)
 #model.pretransform.to("cpu", dtype=torch.float32)
 
 # Ensure output directory exists, and skip saving if the file already exists
-audio_name = "gram_lp.wav"
-audio_dir = "./spectral_analysis"
+audio_name = "debug_baseline.wav"
+audio_dir = "./debug_baseline_outputs/"
 os.makedirs(audio_dir, exist_ok=True)
 audio_path = os.path.join(audio_dir, audio_name)
 
@@ -92,7 +92,7 @@ cfg_scale = 7.0
 c1 = 0
 c2 = 0
 c3 = 0
-c_gram = 250.0
+c_gram = 500
 guidance_rescale = 0.0
 lambda_min = 0.7
 lambda_max = 0.8
@@ -147,12 +147,12 @@ output = my_generate_diffusion_cond(
     seed=seed,
     logger=logger,
     debug_dir=debug_dir,
-    enable_spectral_analysis=True,
+    enable_spectral_analysis=False,
     spectral_output_dir="spectral_analysis/" + audio_name.replace(".wav", ""),
-    amg_filter_enabled=True,
+    amg_filter_enabled=False,
     amg_cutoff_ratio=0.25,
     amg_filter_mode='lowpass',
-    save_latents=True,
+    save_latents=False,
     latent_filename=audio_name 
 )
 

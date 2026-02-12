@@ -1,0 +1,7 @@
+{
+  "cluster_id": 37,
+  "representative_id": "4774",
+  "prompt": "This sample is part of the \"PPG\r\nMULTISAMPLE 007 Insane Melody\" sample pack. The sound is a weird melody\r\nwith some high frequencies at the end. Slow attack and release. In the\r\nsample pack there are 16 samples evenly spread across 5 octaves (C1\r\ntill C6). The note in the sample name (C, E or G#) does not indicate\r\nthe pitch of the sound but the key on my keyboard. The sound was\r\ncreated on the PPG VSTi. After that normalising and fades where applied within Cubase SX.",
+  "duration": 9.600045351473923,
+  "batch_size": 100
+}

@@ -127,29 +127,9 @@ class GenerationConfig:
 # =============================================================================
 
 CONFIGURATIONS: List[GenerationConfig] = [
-    # 1. GRAM non filtrato (come in amg_infer.py ma senza filtro)
-    # GenerationConfig(
-    #     name="baseline",
-    #     cfg_scale=7.0,
-    #     guidance_rescale=0.0,
-    #     c_gram=0.0,
-    #     c1=6.0,
-    #     c2=6.0,
-    #     c3=1000.0,
-    #     gram_neighborhood_scale=0.6,
-    #     gram_use_normalized=False,
-    #     gram_start_step=0,
-    #     lambda_min=0.7,
-    #     lambda_max=0.8,
-    #     constrain_in_sphere=False,
-    #     amg_filter_enabled=False,
-    #     enable_spectral_analysis=False,
-    #     save_latents=True,
-    # ),
     
-    # #2. GRAM filtrato lowpass (come in amg_infer.py)
     GenerationConfig(
-        name="gram_no_filt_250_0.6",
+        name="gram_no_filt_250_0.6_0.4",
         cfg_scale=7.0,
         guidance_rescale=0.0,
         c_gram=250.0,
@@ -159,8 +139,8 @@ CONFIGURATIONS: List[GenerationConfig] = [
         gram_neighborhood_scale=0.6,
         gram_use_normalized=False,
         gram_start_step=0,
-        lambda_min=0.7,
-        lambda_max=0.8,
+        lambda_min=0.4,
+        lambda_max=0.5,
         constrain_in_sphere=False,
         amg_filter_enabled=False,
         amg_cutoff_ratio=0.25,
@@ -169,40 +149,40 @@ CONFIGURATIONS: List[GenerationConfig] = [
         save_latents=True,
     ),
 
-    GenerationConfig(
-        name="gram_lp_250_0.3",
-        cfg_scale=7.0,
-        guidance_rescale=0.0,
-        c_gram=250.0,
-        c1=0.0,
-        c2=0.0,
-        c3=0.0,
-        gram_neighborhood_scale=0.3,
-        gram_use_normalized=False,
-        gram_start_step=0,
-        lambda_min=0.7,
-        lambda_max=0.8,
-        constrain_in_sphere=False,
-        amg_filter_enabled=True,
-        amg_cutoff_ratio=0.25,
-        amg_filter_mode='lowpass',
-        enable_spectral_analysis=False,
-        save_latents=True,
-    ),
-
     # GenerationConfig(
-    #     name="gram_lp_1000_0",
+    #     name="gram_no_filt_250_0.6_0.7",
     #     cfg_scale=7.0,
     #     guidance_rescale=0.0,
-    #     c_gram=1000.0,
+    #     c_gram=250.0,
     #     c1=0.0,
     #     c2=0.0,
     #     c3=0.0,
-    #     gram_neighborhood_scale=0.0,
+    #     gram_neighborhood_scale=0.6,
     #     gram_use_normalized=False,
     #     gram_start_step=0,
     #     lambda_min=0.7,
     #     lambda_max=0.8,
+    #     constrain_in_sphere=False,
+    #     amg_filter_enabled=False,
+    #     amg_cutoff_ratio=0.25,
+    #     amg_filter_mode='lowpass',
+    #     enable_spectral_analysis=False,
+    #     save_latents=True,
+    # ),
+
+    # GenerationConfig(
+    #     name="gram_lp_250_0.3_0.4",
+    #     cfg_scale=7.0,
+    #     guidance_rescale=0.0,
+    #     c_gram=250.0,
+    #     c1=0.0,
+    #     c2=0.0,
+    #     c3=0.0,
+    #     gram_neighborhood_scale=0.3,
+    #     gram_use_normalized=False,
+    #     gram_start_step=0,
+    #     lambda_min=0.4,
+    #     lambda_max=0.5,
     #     constrain_in_sphere=False,
     #     amg_filter_enabled=True,
     #     amg_cutoff_ratio=0.25,
@@ -212,28 +192,7 @@ CONFIGURATIONS: List[GenerationConfig] = [
     # ),
 
     GenerationConfig(
-        name="gram_lp_1000_1",
-        cfg_scale=7.0,
-        guidance_rescale=0.0,
-        c_gram=1000.0,
-        c1=0.0,
-        c2=0.0,
-        c3=0.0,
-        gram_neighborhood_scale=1.0,
-        gram_use_normalized=False,
-        gram_start_step=0,
-        lambda_min=0.7,
-        lambda_max=0.8,
-        constrain_in_sphere=False,
-        amg_filter_enabled=True,
-        amg_cutoff_ratio=0.25,
-        amg_filter_mode='lowpass',
-        enable_spectral_analysis=False,
-        save_latents=True,
-    ),
-
-    GenerationConfig(
-        name="gram_hp_250_0.6",
+        name="gram_lp_250_0.6_0.4",
         cfg_scale=7.0,
         guidance_rescale=0.0,
         c_gram=250.0,
@@ -243,21 +202,21 @@ CONFIGURATIONS: List[GenerationConfig] = [
         gram_neighborhood_scale=0.6,
         gram_use_normalized=False,
         gram_start_step=0,
-        lambda_min=0.7,
-        lambda_max=0.8,
+        lambda_min=0.4,
+        lambda_max=0.5,
         constrain_in_sphere=False,
         amg_filter_enabled=True,
         amg_cutoff_ratio=0.25,
-        amg_filter_mode='highpass',
+        amg_filter_mode='lowpass',
         enable_spectral_analysis=False,
         save_latents=True,
     ),
 
     # GenerationConfig(
-    #     name="gram_lp_500",
+    #     name="gram_lp_1000_0.6_0.7",
     #     cfg_scale=7.0,
     #     guidance_rescale=0.0,
-    #     c_gram=500.0,
+    #     c_gram=1000.0,
     #     c1=0.0,
     #     c2=0.0,
     #     c3=0.0,
@@ -274,49 +233,50 @@ CONFIGURATIONS: List[GenerationConfig] = [
     #     save_latents=True,
     # ),
 
-    # GenerationConfig(
-    #     name="gram_lp_500_norm",
-    #     cfg_scale=7.0,
-    #     guidance_rescale=0.0,
-    #     c_gram=500.0,
-    #     c1=0.0,
-    #     c2=0.0,
-    #     c3=0.0,
-    #     gram_neighborhood_scale=0.6,
-    #     gram_use_normalized=True,
-    #     gram_start_step=0,
-    #     lambda_min=0.7,
-    #     lambda_max=0.8,
-    #     constrain_in_sphere=False,
-    #     amg_filter_enabled=True,
-    #     amg_cutoff_ratio=0.25,
-    #     amg_filter_mode='lowpass',
-    #     enable_spectral_analysis=False,
-    #     save_latents=True,
-    # ),
 
-    # GenerationConfig(
-    #     name="gram_lp_250_norm",
-    #     cfg_scale=7.0,
-    #     guidance_rescale=0.0,
-    #     c_gram=250.0,
-    #     c1=0.0,
-    #     c2=0.0,
-    #     c3=0.0,
-    #     gram_neighborhood_scale=0.6,
-    #     gram_use_normalized=True,
-    #     gram_start_step=0,
-    #     lambda_min=0.7,
-    #     lambda_max=0.8,
-    #     constrain_in_sphere=False,
-    #     amg_filter_enabled=True,
-    #     amg_cutoff_ratio=0.25,
-    #     amg_filter_mode='lowpass',
-    #     enable_spectral_analysis=False,
-    #     save_latents=True,
-    # ),
-    
-    # 3. No AMG (baseline solo CFG)
+    GenerationConfig(
+        name="gram_hp_250_0.6_0.4",
+        cfg_scale=7.0,
+        guidance_rescale=0.0,
+        c_gram=250.0,
+        c1=0.0,
+        c2=0.0,
+        c3=0.0,
+        gram_neighborhood_scale=0.6,
+        gram_use_normalized=False,
+        gram_start_step=0,
+        lambda_min=0.4,
+        lambda_max=0.5,
+        constrain_in_sphere=False,
+        amg_filter_enabled=True,
+        amg_cutoff_ratio=0.25,
+        amg_filter_mode='highpass',
+        enable_spectral_analysis=False,
+        save_latents=True,
+    ),
+
+    GenerationConfig(
+        name="gram_lp_500_0.6_0.4",
+        cfg_scale=7.0,
+        guidance_rescale=0.0,
+        c_gram=500.0,
+        c1=0.0,
+        c2=0.0,
+        c3=0.0,
+        gram_neighborhood_scale=0.6,
+        gram_use_normalized=False,
+        gram_start_step=0,
+        lambda_min=0.4,
+        lambda_max=0.5,
+        constrain_in_sphere=False,
+        amg_filter_enabled=True,
+        amg_cutoff_ratio=0.25,
+        amg_filter_mode='lowpass',
+        enable_spectral_analysis=False,
+        save_latents=True,
+    ),
+
+   
     # GenerationConfig(
     #     name="no_amg",
     #     cfg_scale=7.0,
@@ -328,17 +288,35 @@ CONFIGURATIONS: List[GenerationConfig] = [
     #     gram_neighborhood_scale=0.6,
     #     gram_use_normalized=False,
     #     gram_start_step=0,
-    #     lambda_min=0.7,
-    #     lambda_max=0.8,
+    #     lambda_min=0.4,
+    #     lambda_max=0.5,
     #     constrain_in_sphere=False,
     #     amg_filter_enabled=False,
     #     enable_spectral_analysis=False,
     #     save_latents=True,
     # ),
 
-    # 3. No AMG (baseline solo CFG)
+    GenerationConfig(
+        name="baseline_0.4",
+        cfg_scale=7.0,
+        guidance_rescale=0.0,
+        c_gram=0.0,
+        c1=6.0,
+        c2=6.0,
+        c3=1000.0,
+        gram_neighborhood_scale=0.6,
+        gram_use_normalized=False,
+        gram_start_step=0,
+        lambda_min=0.4,
+        lambda_max=0.5,
+        constrain_in_sphere=False,
+        amg_filter_enabled=False,
+        enable_spectral_analysis=False,
+        save_latents=True,
+    ),
+
     # GenerationConfig(
-    #     name="baseline",
+    #     name="baseline_0.7",
     #     cfg_scale=7.0,
     #     guidance_rescale=0.0,
     #     c_gram=0.0,
@@ -363,7 +341,7 @@ CONFIGURATIONS: List[GenerationConfig] = [
 
 INPUT_JSON = 'embeddings_new.json'
 CLUSTER_REPRESENTATIVES_CSV = 'cluster_representatives.csv'
-BASE_OUTPUT_DIR = "./gram_lp_sphere_studies_full_clusters_6k"
+BASE_OUTPUT_DIR = "fad_quality_studies"
 LOG_DIR = "./logs"
 
 # GENERATION SOURCE:
@@ -371,13 +349,13 @@ LOG_DIR = "./logs"
 # - List [1, 5, 10]: Use representatives from clusters 1, 5, 10
 # - String "3-20": Use representatives from clusters 3 to 20 (inclusive)
 # - Tuple (3, 20): Use representatives from clusters 3 to 20 (inclusive)
-GENERATION_SOURCE: Union[int, List[int], str, tuple] = (0, 19)  # Single audio for spectral analysis
+GENERATION_SOURCE: Union[int, List[int], str, tuple] = 1000  # Single audio for spectral analysis
 
-BATCH_SIZE = 100                       # Number of audio to generate per prompt/cluster
-MINI_BATCH_SIZE = 4                  # Number of audio to generate at once (reduces VRAM usage)
+BATCH_SIZE = 1                       # Number of audio to generate per prompt/cluster
+MINI_BATCH_SIZE = 1                  # Number of audio to generate at once (reduces VRAM usage)
 SEED = -1                          # -1 for random (consistent across configs)
 SELECTION_SEED = -1                # Seed for ID selection (-1 = random, use fixed value to reproduce same selection)
-GPUS = [0, 1]                      # List of GPU indices to use
+GPUS = [1]                      # List of GPU indices to use
 
 def parse_generation_source(source: Union[int, List[int], str, tuple]) -> tuple:
     """

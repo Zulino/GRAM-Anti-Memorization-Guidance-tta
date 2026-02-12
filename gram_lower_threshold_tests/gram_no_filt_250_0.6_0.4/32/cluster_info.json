@@ -1,0 +1,7 @@
+{
+  "cluster_id": 32,
+  "representative_id": "4702",
+  "prompt": "This sample is part of the \"PPG MULTISAMPLE 003 Lfoed\"\r\nsample pack. It is an experimental sound effect, suitable for\r\nexperimental music or as a sound effect. It consists of a texture with\r\nsome LFO\r\nand fades on it. In the sample pack there are 16 samples evenly spread\r\nacross 5 octaves (C1 till C6). The note in the sample name (C, E or G#)\r\ndoes not indicate the pitch of the sound but the key on my keyboard.\r\nThe sound was created on the PPG VSTi. After that normalising and fades where applied within Cubase SX.",
+  "duration": 24.0,
+  "batch_size": 100
+}
