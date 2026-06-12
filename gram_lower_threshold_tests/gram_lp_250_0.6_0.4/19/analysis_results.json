@@ -1,7 +1,7 @@
 {
     "experiment_info": {
-        "timestamp": "2026-02-11 11:07:48",
-        "subdir": "19",
+        "timestamp": "2026-05-29 15:27:16",
+        "subdir": "gram_lp_250_0.6_0.4/19",
         "target_id": "3477",
         "prompt": "Plucked headstock strings of Peavey Dynabass with a metal pick recorded direct to PC with clip on radioshack condenser mic. ",
         "num_generations": 100,
@@ -13,13 +13,15 @@
         ]
     },
     "metrics": {
-        "global_avg_similarity": 0.09819682687520981,
-        "avg_nearest_neighbor_similarity": 0.6390451192855835,
-        "avg_target_similarity": 0.21391555666923523,
-        "max_target_similarity": 0.6701151132583618,
-        "avg_prompt_adherence": 0.10545913130044937,
-        "intra_list_diversity": 0.6051481068134308,
-        "total_variance": 0.605148196220398
+        "global_avg_similarity": 0.16118615865707397,
+        "avg_nearest_neighbor_similarity": 0.6681854724884033,
+        "avg_target_similarity": 0.23436792194843292,
+        "avg_nn_ratio": 1.0308843851089478,
+        "avg_cluster_log_rge": -0.135252525229007,
+        "max_target_similarity": 0.5780391097068787,
+        "avg_prompt_adherence": 0.1303694099187851,
+        "intra_list_diversity": 0.5572328567504883,
+        "total_variance": 0.5572329163551331
     },
     "generated_files": [
         "gen_1.wav",

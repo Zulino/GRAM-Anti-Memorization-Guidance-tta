@@ -1,7 +1,7 @@
 {
     "experiment_info": {
-        "timestamp": "2026-02-11 11:08:02",
-        "subdir": "25",
+        "timestamp": "2026-05-29 15:27:26",
+        "subdir": "gram_lp_250_0.6_0.4/25",
         "target_id": "4261",
         "prompt": "12th fret notes from each string with tremolo through zoom processor direct to record producer.",
         "num_generations": 100,
@@ -13,13 +13,15 @@
         ]
     },
     "metrics": {
-        "global_avg_similarity": 0.061945028603076935,
-        "avg_nearest_neighbor_similarity": 0.5760179162025452,
-        "avg_target_similarity": 0.2541614770889282,
-        "max_target_similarity": 0.5353349447250366,
-        "avg_prompt_adherence": 0.23087243735790253,
-        "intra_list_diversity": 0.45323455333709717,
-        "total_variance": 0.45323455333709717
+        "global_avg_similarity": 0.13611765205860138,
+        "avg_nearest_neighbor_similarity": 0.6136294603347778,
+        "avg_target_similarity": 0.3169327974319458,
+        "avg_nn_ratio": 1.035797357559204,
+        "avg_cluster_log_rge": -0.20240906495600938,
+        "max_target_similarity": 0.5526492595672607,
+        "avg_prompt_adherence": 0.15324832499027252,
+        "intra_list_diversity": 0.4549626111984253,
+        "total_variance": 0.4549626410007477
     },
     "generated_files": [
         "gen_1.wav",

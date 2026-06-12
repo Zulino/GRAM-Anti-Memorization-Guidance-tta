@@ -1,6 +1,6 @@
 {
     "experiment_info": {
-        "timestamp": "2026-02-11 12:42:48",
+        "timestamp": "2026-05-29 15:32:35",
         "subdir": "no_amg/47",
         "target_id": "5325",
         "prompt": "Multisamples created with subsynth using square and triangle waveform. Converted to aiff using batch processing with CoolEdit 96. ",
@@ -17,13 +17,15 @@
         ]
     },
     "metrics": {
-        "global_avg_similarity": 0.08453123271465302,
-        "avg_nearest_neighbor_similarity": 0.6571096777915955,
-        "avg_target_similarity": 0.3504710793495178,
-        "max_target_similarity": 0.5705114603042603,
-        "avg_prompt_adherence": 0.35499709844589233,
-        "intra_list_diversity": 0.33500128984451294,
-        "total_variance": 0.3350013494491577
+        "global_avg_similarity": 0.1400405913591385,
+        "avg_nearest_neighbor_similarity": 0.6590762734413147,
+        "avg_target_similarity": 0.34661734104156494,
+        "avg_nn_ratio": 1.0324052572250366,
+        "avg_cluster_log_rge": -0.3326424464583397,
+        "max_target_similarity": 0.5168840885162354,
+        "avg_prompt_adherence": 0.33586806058883667,
+        "intra_list_diversity": 0.3945940136909485,
+        "total_variance": 0.39459407329559326
     },
     "generated_files": [
         "gen_1.wav",

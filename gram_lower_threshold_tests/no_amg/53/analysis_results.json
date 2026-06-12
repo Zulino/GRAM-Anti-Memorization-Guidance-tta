@@ -1,6 +1,6 @@
 {
     "experiment_info": {
-        "timestamp": "2026-02-11 12:42:54",
+        "timestamp": "2026-05-29 15:32:42",
         "subdir": "no_amg/53",
         "target_id": "597226",
         "prompt": "Drum Sound by Stolting Media Group. Visit <a href=\"http://www.stoltingmediagroup.com\" rel=\"nofollow\">http://www.stoltingmediagroup.com</a>",
@@ -490,13 +490,15 @@
         ]
     },
     "metrics": {
-        "global_avg_similarity": 0.12089115381240845,
-        "avg_nearest_neighbor_similarity": 0.875421404838562,
-        "avg_target_similarity": 0.5310491323471069,
-        "max_target_similarity": 0.6478903889656067,
-        "avg_prompt_adherence": 0.38004741072654724,
-        "intra_list_diversity": 0.05209767818450928,
-        "total_variance": 0.05209781974554062
+        "global_avg_similarity": 0.20256966352462769,
+        "avg_nearest_neighbor_similarity": 0.8300912976264954,
+        "avg_target_similarity": 0.5208516716957092,
+        "avg_nn_ratio": 1.0441559553146362,
+        "avg_cluster_log_rge": -2.441858960390091,
+        "max_target_similarity": 0.8630653619766235,
+        "avg_prompt_adherence": 0.2368779480457306,
+        "intra_list_diversity": 0.18283945322036743,
+        "total_variance": 0.1828395128250122
     },
     "generated_files": [
         "gen_1.wav",

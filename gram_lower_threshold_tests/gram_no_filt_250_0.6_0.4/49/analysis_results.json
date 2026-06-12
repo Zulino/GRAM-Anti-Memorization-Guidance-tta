@@ -1,6 +1,6 @@
 {
     "experiment_info": {
-        "timestamp": "2026-02-11 12:42:41",
+        "timestamp": "2026-05-29 15:32:10",
         "subdir": "gram_no_filt_250_0.6_0.4/49",
         "target_id": "5584",
         "prompt": "Strange electronic interference from outer space. This sound was created using the Waldorf Attack VSTi within Cubase SX. Normalised and dithered to 16 bit 44.1 kHz.",
@@ -13,13 +13,15 @@
         ]
     },
     "metrics": {
-        "global_avg_similarity": 0.09418368339538574,
-        "avg_nearest_neighbor_similarity": 0.7141961455345154,
-        "avg_target_similarity": 0.3840887248516083,
-        "max_target_similarity": 0.6248268485069275,
-        "avg_prompt_adherence": 0.22602246701717377,
-        "intra_list_diversity": 0.4436778426170349,
-        "total_variance": 0.4436779022216797
+        "global_avg_similarity": 0.1391490399837494,
+        "avg_nearest_neighbor_similarity": 0.6412321329116821,
+        "avg_target_similarity": 0.4750536382198334,
+        "avg_nn_ratio": 1.0373402833938599,
+        "avg_cluster_log_rge": -0.36619507491588593,
+        "max_target_similarity": 0.7661161422729492,
+        "avg_prompt_adherence": 0.2454058825969696,
+        "intra_list_diversity": 0.4530787467956543,
+        "total_variance": 0.4530787467956543
     },
     "generated_files": [
         "gen_1.wav",

@@ -1,7 +1,7 @@
 {
     "experiment_info": {
-        "timestamp": "2026-02-11 11:15:48",
-        "subdir": "39",
+        "timestamp": "2026-05-29 15:29:07",
+        "subdir": "gram_lp_500_0.6_0.4/39",
         "target_id": "4789",
         "prompt": "This sample is part of the \"PPG\r\nMULTISAMPLE 008 Dissonant Space Organ\" sample pack. A short dissonant\r\nchord with a sound that is similar to that or an organ. In the sample\r\npack there are 16 samples evenly spread across 5 octaves (C1 till C6).\r\nThe note in the sample name (C, E or G#) does not indicate the pitch of\r\nthe sound but the key on my keyboard. The sound was created on the PPG VSTi. After that normalising and fades where applied within Cubase SX.",
         "num_generations": 100,
@@ -23,11 +23,13 @@
         ]
     },
     "metrics": {
-        "global_avg_similarity": 0.13234226405620575,
+        "global_avg_similarity": 0.1323559731245041,
         "avg_nearest_neighbor_similarity": 0.6104170083999634,
-        "avg_target_similarity": 0.21363261342048645,
+        "avg_target_similarity": 0.21363267302513123,
+        "avg_nn_ratio": 1.0406553745269775,
+        "avg_cluster_log_rge": -0.36046920597553256,
         "max_target_similarity": 0.5021631717681885,
-        "avg_prompt_adherence": 0.18841417133808136,
+        "avg_prompt_adherence": 0.18841415643692017,
         "intra_list_diversity": 0.5325905382633209,
         "total_variance": 0.5325906276702881
     },

@@ -1,7 +1,7 @@
 {
     "experiment_info": {
-        "timestamp": "2026-02-11 11:15:24",
-        "subdir": "27",
+        "timestamp": "2026-05-29 15:28:50",
+        "subdir": "gram_lp_500_0.6_0.4/27",
         "target_id": "4359",
         "prompt": "Multisamples created with subsynth. Sounds like atari pong noise.",
         "num_generations": 100,
@@ -38,11 +38,13 @@
         ]
     },
     "metrics": {
-        "global_avg_similarity": 0.21934504806995392,
+        "global_avg_similarity": 0.2193436473608017,
         "avg_nearest_neighbor_similarity": 0.8827729821205139,
         "avg_target_similarity": 0.35539576411247253,
+        "avg_nn_ratio": 1.0162593126296997,
+        "avg_cluster_log_rge": -0.5626854237914085,
         "max_target_similarity": 0.5460146069526672,
-        "avg_prompt_adherence": 0.21127110719680786,
+        "avg_prompt_adherence": 0.21127116680145264,
         "intra_list_diversity": 0.2081933617591858,
         "total_variance": 0.2081933617591858
     },

@@ -1,7 +1,7 @@
 {
     "experiment_info": {
-        "timestamp": "2026-02-11 11:07:56",
-        "subdir": "22",
+        "timestamp": "2026-05-29 15:27:21",
+        "subdir": "gram_lp_250_0.6_0.4/22",
         "target_id": "3807",
         "prompt": "Online text to speech of German translation of some of my lyrics. Female voice originally in 16k format, upsampled to 22k for upload.",
         "num_generations": 100,
@@ -15,13 +15,15 @@
         ]
     },
     "metrics": {
-        "global_avg_similarity": 0.06063028797507286,
-        "avg_nearest_neighbor_similarity": 0.6903683543205261,
-        "avg_target_similarity": 0.6288789510726929,
-        "max_target_similarity": 0.8378540277481079,
-        "avg_prompt_adherence": 0.5025425553321838,
-        "intra_list_diversity": 0.2961699366569519,
-        "total_variance": 0.2961699962615967
+        "global_avg_similarity": 0.15694528818130493,
+        "avg_nearest_neighbor_similarity": 0.7559126019477844,
+        "avg_target_similarity": 0.6787627935409546,
+        "avg_nn_ratio": 1.0413427352905273,
+        "avg_cluster_log_rge": -0.8096452155709266,
+        "max_target_similarity": 0.8068999648094177,
+        "avg_prompt_adherence": 0.5214406251907349,
+        "intra_list_diversity": 0.1591147780418396,
+        "total_variance": 0.1591147780418396
     },
     "generated_files": [
         "gen_1.wav",

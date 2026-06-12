@@ -1,7 +1,7 @@
 {
     "experiment_info": {
-        "timestamp": "2026-02-11 11:28:19",
-        "subdir": "3",
+        "timestamp": "2026-05-29 15:31:43",
+        "subdir": "gram_no_filt_250_0.6_0.4/3",
         "target_id": "2069",
         "prompt": "Tom from sampled analog drum computer. Mattel Synsonic Drum Pad. more info: <a href=\"http://www.hollowsun\" rel=\"nofollow\">http://www.hollowsun</a> .com/vintage/mattel/",
         "num_generations": 100,
@@ -24,13 +24,15 @@
         ]
     },
     "metrics": {
-        "global_avg_similarity": 0.09650997072458267,
-        "avg_nearest_neighbor_similarity": 0.5954555869102478,
-        "avg_target_similarity": 0.11874987930059433,
-        "max_target_similarity": 0.32583293318748474,
-        "avg_prompt_adherence": -0.02167835645377636,
-        "intra_list_diversity": 0.5387189984321594,
-        "total_variance": 0.5387190580368042
+        "global_avg_similarity": 0.1654430776834488,
+        "avg_nearest_neighbor_similarity": 0.632333517074585,
+        "avg_target_similarity": 0.1706138551235199,
+        "avg_nn_ratio": 1.0423640012741089,
+        "avg_cluster_log_rge": -0.25743477113544944,
+        "max_target_similarity": 0.4723523259162903,
+        "avg_prompt_adherence": 0.06013869494199753,
+        "intra_list_diversity": 0.5338501930236816,
+        "total_variance": 0.5338503122329712
     },
     "generated_files": [
         "gen_1.wav",

@@ -1,7 +1,7 @@
 {
     "experiment_info": {
-        "timestamp": "2026-02-11 11:07:54",
-        "subdir": "21",
+        "timestamp": "2026-05-29 15:27:20",
+        "subdir": "gram_lp_250_0.6_0.4/21",
         "target_id": "3709",
         "prompt": "Multisamples created with Subsynth. Square single osc 22k wavs converted to AIF for uploading.",
         "num_generations": 100,
@@ -15,13 +15,15 @@
         ]
     },
     "metrics": {
-        "global_avg_similarity": 0.08523306995630264,
-        "avg_nearest_neighbor_similarity": 0.6649644374847412,
-        "avg_target_similarity": 0.3708403706550598,
-        "max_target_similarity": 0.620115339756012,
-        "avg_prompt_adherence": 0.030758274719119072,
-        "intra_list_diversity": 0.3217189311981201,
-        "total_variance": 0.3217189908027649
+        "global_avg_similarity": 0.16068796813488007,
+        "avg_nearest_neighbor_similarity": 0.6606354117393494,
+        "avg_target_similarity": 0.42485755681991577,
+        "avg_nn_ratio": 1.031972050666809,
+        "avg_cluster_log_rge": -0.44293073907494546,
+        "max_target_similarity": 0.6243076920509338,
+        "avg_prompt_adherence": 0.25678056478500366,
+        "intra_list_diversity": 0.3594878315925598,
+        "total_variance": 0.3594878911972046
     },
     "generated_files": [
         "gen_1.wav",

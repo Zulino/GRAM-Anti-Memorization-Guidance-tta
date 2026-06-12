@@ -1,7 +1,7 @@
 {
     "experiment_info": {
-        "timestamp": "2026-02-11 11:16:11",
-        "subdir": "5",
+        "timestamp": "2026-05-29 15:29:22",
+        "subdir": "gram_lp_500_0.6_0.4/5",
         "target_id": "2606",
         "prompt": "flamenco riff (very, very un-Russian!) on my balalaika, recorded with a cheap computer mic wedged under the strings below the bridge. ",
         "num_generations": 100,
@@ -15,11 +15,13 @@
         ]
     },
     "metrics": {
-        "global_avg_similarity": 0.13950902223587036,
-        "avg_nearest_neighbor_similarity": 0.6134779453277588,
+        "global_avg_similarity": 0.13948282599449158,
+        "avg_nearest_neighbor_similarity": 0.6135367155075073,
         "avg_target_similarity": 0.28799933195114136,
+        "avg_nn_ratio": 1.0359662771224976,
+        "avg_cluster_log_rge": -0.19739688228815794,
         "max_target_similarity": 0.6479921340942383,
-        "avg_prompt_adherence": 0.18971511721611023,
+        "avg_prompt_adherence": 0.18971501290798187,
         "intra_list_diversity": 0.46708786487579346,
         "total_variance": 0.46708786487579346
     },

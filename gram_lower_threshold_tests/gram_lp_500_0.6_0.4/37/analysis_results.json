@@ -1,7 +1,7 @@
 {
     "experiment_info": {
-        "timestamp": "2026-02-11 11:15:45",
-        "subdir": "37",
+        "timestamp": "2026-05-29 15:29:04",
+        "subdir": "gram_lp_500_0.6_0.4/37",
         "target_id": "4774",
         "prompt": "This sample is part of the \"PPG\r\nMULTISAMPLE 007 Insane Melody\" sample pack. The sound is a weird melody\r\nwith some high frequencies at the end. Slow attack and release. In the\r\nsample pack there are 16 samples evenly spread across 5 octaves (C1\r\ntill C6). The note in the sample name (C, E or G#) does not indicate\r\nthe pitch of the sound but the key on my keyboard. The sound was\r\ncreated on the PPG VSTi. After that normalising and fades where applied within Cubase SX.",
         "num_generations": 100,
@@ -22,11 +22,13 @@
         ]
     },
     "metrics": {
-        "global_avg_similarity": 0.13872313499450684,
-        "avg_nearest_neighbor_similarity": 0.6088956594467163,
-        "avg_target_similarity": 0.4915302097797394,
+        "global_avg_similarity": 0.13880091905593872,
+        "avg_nearest_neighbor_similarity": 0.6130147576332092,
+        "avg_target_similarity": 0.491530179977417,
+        "avg_nn_ratio": 1.0298136472702026,
+        "avg_cluster_log_rge": -0.6298960103094577,
         "max_target_similarity": 0.668796181678772,
-        "avg_prompt_adherence": 0.26608458161354065,
+        "avg_prompt_adherence": 0.2660845220088959,
         "intra_list_diversity": 0.27770888805389404,
         "total_variance": 0.2777089476585388
     },

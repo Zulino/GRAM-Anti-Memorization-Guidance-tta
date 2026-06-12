@@ -1,7 +1,7 @@
 {
     "experiment_info": {
-        "timestamp": "2026-02-11 11:14:45",
-        "subdir": "1",
+        "timestamp": "2026-05-29 15:28:23",
+        "subdir": "gram_lp_500_0.6_0.4/1",
         "target_id": "1921",
         "prompt": "Medium Large theater, Applause.\n\nRecorded with a pair of spaced omnis to a DA-88.",
         "num_generations": 100,
@@ -13,13 +13,15 @@
         ]
     },
     "metrics": {
-        "global_avg_similarity": 0.044743284583091736,
-        "avg_nearest_neighbor_similarity": 0.507497251033783,
-        "avg_target_similarity": 0.36118578910827637,
-        "max_target_similarity": 0.686150312423706,
-        "avg_prompt_adherence": 0.30927565693855286,
-        "intra_list_diversity": 0.37146878242492676,
-        "total_variance": 0.3714688718318939
+        "global_avg_similarity": 0.04432704299688339,
+        "avg_nearest_neighbor_similarity": 0.5070027709007263,
+        "avg_target_similarity": 0.3677853047847748,
+        "avg_nn_ratio": 1.0459215641021729,
+        "avg_cluster_log_rge": -0.2592151992581785,
+        "max_target_similarity": 0.5790019631385803,
+        "avg_prompt_adherence": 0.3093891739845276,
+        "intra_list_diversity": 0.3625890612602234,
+        "total_variance": 0.3625890910625458
     },
     "generated_files": [
         "gen_1.wav",

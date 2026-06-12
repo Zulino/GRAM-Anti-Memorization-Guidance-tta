@@ -62,7 +62,7 @@ def main():
     parser = argparse.ArgumentParser(description="Find the most similar audio in a folder using CLAP.")
     parser.add_argument("--ref", type=str, required=True, help="Path to the reference audio file.")
     parser.add_argument("--folder", type=str, required=True, help="Folder containing candidate audio files.")
-    parser.add_argument("--top-k", type=int, default=5, help="Number of top matches to display.")
+    parser.add_argument("--top-k", type=int, default=10, help="Number of top matches to display.")
     parser.add_argument("--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu")
     
     args = parser.parse_args()

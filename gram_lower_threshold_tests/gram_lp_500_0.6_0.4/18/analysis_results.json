@@ -1,7 +1,7 @@
 {
     "experiment_info": {
-        "timestamp": "2026-02-11 11:15:05",
-        "subdir": "18",
+        "timestamp": "2026-05-29 15:28:37",
+        "subdir": "gram_lp_500_0.6_0.4/18",
         "target_id": "3426",
         "prompt": "Recording of me plucking the strings on the headstock of my cheap Rogue guitar. Recorded direct to PC with a RadioShack clip on condenser mic.",
         "num_generations": 100,
@@ -15,13 +15,15 @@
         ]
     },
     "metrics": {
-        "global_avg_similarity": 0.16855166852474213,
+        "global_avg_similarity": 0.1685943454504013,
         "avg_nearest_neighbor_similarity": 0.683807373046875,
-        "avg_target_similarity": 0.14698398113250732,
-        "max_target_similarity": 0.34045466780662537,
-        "avg_prompt_adherence": 0.04705825820565224,
+        "avg_target_similarity": 0.14698396623134613,
+        "avg_nn_ratio": 1.0302605628967285,
+        "avg_cluster_log_rge": -0.08166103626601398,
+        "max_target_similarity": 0.3404547870159149,
+        "avg_prompt_adherence": 0.04705825075507164,
         "intra_list_diversity": 0.5248500406742096,
-        "total_variance": 0.5248501300811768
+        "total_variance": 0.524850070476532
     },
     "generated_files": [
         "gen_1.wav",

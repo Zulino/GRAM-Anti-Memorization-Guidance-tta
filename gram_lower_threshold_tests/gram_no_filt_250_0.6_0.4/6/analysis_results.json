@@ -1,7 +1,7 @@
 {
     "experiment_info": {
-        "timestamp": "2026-02-11 11:28:51",
-        "subdir": "6",
+        "timestamp": "2026-05-29 15:32:24",
+        "subdir": "gram_no_filt_250_0.6_0.4/6",
         "target_id": "2621",
         "prompt": "This is loop 7 in a series of 16 variations. The style is pure electro.\r\nThe pitch of the melodic sounds is C. Created with the Waldorf Attack VSTi within Cubase SX. I used the Analog kit 2 preset to create this 133 bpm loop. It lasts 8 measures in 4/4. Mastered using Elemental and TC plugins within Wavelab.",
         "num_generations": 100,
@@ -14,13 +14,15 @@
         ]
     },
     "metrics": {
-        "global_avg_similarity": 0.04805704206228256,
-        "avg_nearest_neighbor_similarity": 0.6093020439147949,
-        "avg_target_similarity": 0.49279218912124634,
-        "max_target_similarity": 0.7299453020095825,
-        "avg_prompt_adherence": 0.09768097847700119,
-        "intra_list_diversity": 0.3500335216522217,
-        "total_variance": 0.35003358125686646
+        "global_avg_similarity": 0.09532646089792252,
+        "avg_nearest_neighbor_similarity": 0.5708202719688416,
+        "avg_target_similarity": 0.3621651828289032,
+        "avg_nn_ratio": 1.060862421989441,
+        "avg_cluster_log_rge": -0.2884088183939457,
+        "max_target_similarity": 0.4978635907173157,
+        "avg_prompt_adherence": 0.24479997158050537,
+        "intra_list_diversity": 0.2025178074836731,
+        "total_variance": 0.20251786708831787
     },
     "generated_files": [
         "gen_1.wav",

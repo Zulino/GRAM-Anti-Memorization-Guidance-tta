@@ -1,7 +1,7 @@
 {
     "experiment_info": {
-        "timestamp": "2026-02-11 11:28:24",
-        "subdir": "33",
+        "timestamp": "2026-05-29 15:31:49",
+        "subdir": "gram_no_filt_250_0.6_0.4/33",
         "target_id": "4724",
         "prompt": "This sample is part of the \"PPG\r\nMULTISAMPLE 004 Digital Shorty\" sample pack. It is a very short sound\r\neffect with some pitch element in it, and can be used for arpeggios. In\r\nthe sample pack there are 16 samples evenly spread across 5 octaves (C1\r\ntill C6). The note in the sample name (C, E or G#) does not indicate\r\nthe pitch of the sound but the key on my keyboard. The sound was\r\ncreated on the PPG VSTi. After that normalising and fades where applied within Cubase SX.",
         "num_generations": 100,
@@ -13,13 +13,15 @@
         ]
     },
     "metrics": {
-        "global_avg_similarity": 0.08219563961029053,
-        "avg_nearest_neighbor_similarity": 0.5861801505088806,
-        "avg_target_similarity": 0.1635684221982956,
-        "max_target_similarity": 0.5359333157539368,
-        "avg_prompt_adherence": 0.04760618880391121,
-        "intra_list_diversity": 0.5625079870223999,
-        "total_variance": 0.5625080466270447
+        "global_avg_similarity": 0.1562872678041458,
+        "avg_nearest_neighbor_similarity": 0.6212817430496216,
+        "avg_target_similarity": 0.20734848082065582,
+        "avg_nn_ratio": 1.0345858335494995,
+        "avg_cluster_log_rge": -0.14497247198596597,
+        "max_target_similarity": 0.4572758674621582,
+        "avg_prompt_adherence": 0.10545867681503296,
+        "intra_list_diversity": 0.5532004833221436,
+        "total_variance": 0.5532005429267883
     },
     "generated_files": [
         "gen_1.wav",

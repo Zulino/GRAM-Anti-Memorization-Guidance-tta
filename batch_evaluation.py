@@ -154,6 +154,54 @@ def extract_id_from_filename(filename):
         return match.group(1)
     return None
 
+
+def compute_log_rge_for_sample(
+    gen_embedding: torch.Tensor,
+    candidate_embeddings_norm: torch.Tensor,
+    cosine_sim_row: torch.Tensor,
+    k_neighbors: int = 100,
+    epsilon: float = 1e-6,
+):
+    """Compute Log-RGE for one generated sample using its k nearest candidate neighbors.
+
+    The vectors are assumed to be L2-normalized already.
+    The score is log(det(G_aug)) - log(det(G_base)), where G_base is the Gram matrix
+    of the neighbor set and G_aug is the Gram matrix after appending the generated sample.
+    """
+
+    num_candidates, embedding_dim = candidate_embeddings_norm.shape
+    if num_candidates == 0 or embedding_dim <= 1:
+        return None
+
+    max_k = min(k_neighbors, num_candidates, embedding_dim - 1)
+    if max_k < 1:
+        return None
+
+    topk_indices = torch.topk(cosine_sim_row, k=max_k, dim=0, largest=True).indices
+    neighbor_embeddings = candidate_embeddings_norm[topk_indices]
+
+    def stable_logdet_from_rows(embeddings: torch.Tensor):
+        embeddings_64 = embeddings.to(torch.float64)
+        gram_matrix = embeddings_64 @ embeddings_64.T
+        gram_matrix = gram_matrix + torch.eye(
+            gram_matrix.shape[0], device=gram_matrix.device, dtype=torch.float64
+        ) * epsilon
+        sign, log_det = torch.linalg.slogdet(gram_matrix)
+        if sign <= 0:
+            return None
+        return log_det
+
+    base_log_det = stable_logdet_from_rows(neighbor_embeddings)
+    if base_log_det is None:
+        return None
+
+    augmented_embeddings = torch.cat([neighbor_embeddings, gen_embedding.unsqueeze(0)], dim=0)
+    aug_log_det = stable_logdet_from_rows(augmented_embeddings)
+    if aug_log_det is None:
+        return None
+
+    return (aug_log_det - base_log_det).to(gen_embedding.dtype)
+
 def plot_combined_analysis(X_tsne, X_pca, X_umap, subdir_name,
                            metrics, train_offset, best_gen_indices,
                            target_idx=None, cluster_indices=None,
@@ -353,6 +401,26 @@ def process_subdir(subdir_path, subdir_name, train_data, train_ids,
     else:
         text_embed = torch.tensor(text_embed).to(device)
     text_embed_norm = F.normalize(text_embed, p=2, dim=1)
+
+    # Get cluster members from clusters.json (used both for Log-RGE and visualization).
+    cluster_member_ids = []
+    if clusters is not None and rep_to_cluster is not None:
+        cluster_member_ids = get_cluster_members_for_target(target_id, clusters, rep_to_cluster)
+    print(f"  Found {len(cluster_member_ids)} cluster members from clusters.json")
+
+    # Candidate pool for Log-RGE: current cluster only, including the representative.
+    cluster_candidate_train_indices = []
+    if target_train_idx is not None:
+        cluster_candidate_train_indices.append(target_train_idx)
+    for member_id in cluster_member_ids:
+        if member_id in train_ids:
+            cluster_candidate_train_indices.append(train_ids.index(member_id))
+    cluster_candidate_train_indices = sorted(set(cluster_candidate_train_indices))
+    cluster_candidate_embeddings_norm = (
+        train_embeddings_norm[cluster_candidate_train_indices]
+        if cluster_candidate_train_indices
+        else None
+    )
     
     # Process all files for this target
     generated_embeddings_list = []
@@ -395,9 +463,35 @@ def process_subdir(subdir_path, subdir_name, train_data, train_ids,
     
     # --- CALCULATE METRICS ---
     cosine_sim_matrix = torch.mm(gen_embeddings_norm, train_embeddings_norm.T)
+    
+    # Local normalized Log-RGE using only the current cluster as candidate pool.
+    cluster_log_rge_list = []
+    if cluster_candidate_embeddings_norm is not None:
+        cluster_cosine_sim_matrix = torch.mm(gen_embeddings_norm, cluster_candidate_embeddings_norm.T)
+        for gen_idx in range(gen_embeddings_norm.shape[0]):
+            log_rge = compute_log_rge_for_sample(
+                gen_embedding=gen_embeddings_norm[gen_idx],
+                candidate_embeddings_norm=cluster_candidate_embeddings_norm,
+                cosine_sim_row=cluster_cosine_sim_matrix[gen_idx],
+                k_neighbors=100,
+            )
+            if log_rge is not None:
+                cluster_log_rge_list.append(float(log_rge.item()))
+    avg_cluster_log_rge = float(np.mean(cluster_log_rge_list)) if cluster_log_rge_list else float('nan')
+    
     global_avg_sim = cosine_sim_matrix.mean().item()
     max_sim_per_gen = cosine_sim_matrix.max(dim=1).values
     global_avg_max_sim = max_sim_per_gen.mean().item()
+
+    # ratio between first and second NN-sim (guard when there are <2 training embeddings)
+    if train_embeddings.shape[0] >= 2:
+        top2_vals = torch.topk(cosine_sim_matrix, k=2, dim=1, largest=True).values
+        top1_sim = top2_vals[:, 0]
+        top2_sim = top2_vals[:, 1]
+        nn_ratio_per_gen = top1_sim / torch.clamp(top2_sim, min=1e-8)
+        avg_nn_ratio = nn_ratio_per_gen.mean().item()
+    else:
+        avg_nn_ratio = float('nan')
     
     # Target similarity
     target_sims = torch.mm(gen_embeddings_norm, target_embedding_norm.T)
@@ -413,11 +507,14 @@ def process_subdir(subdir_path, subdir_name, train_data, train_ids,
     mask_diag = torch.eye(gen_sim_matrix.shape[0], device=device).bool()
     off_diag_sims = gen_sim_matrix[~mask_diag]
     intra_list_diversity = 1.0 - off_diag_sims.mean().item() if len(off_diag_sims) > 0 else 0.0
-    total_variance = torch.var(gen_embeddings, dim=0).sum().item()
+    total_variance = torch.var(gen_embeddings, dim=0).mean().item()
+    
     
     metrics = {
         'global_avg_sim': global_avg_sim,
         'global_avg_max_sim': global_avg_max_sim,
+        'avg_nn_ratio': avg_nn_ratio,
+        'avg_cluster_log_rge': avg_cluster_log_rge,
         'avg_target_sim': avg_target_sim,
         'max_target_sim': max_target_sim,
         'avg_prompt_adherence': avg_prompt_adherence,
@@ -442,12 +539,6 @@ def process_subdir(subdir_path, subdir_name, train_data, train_ids,
     # Force include target
     if target_train_idx is not None:
         relevant_train_indices = np.union1d(relevant_train_indices, np.array([target_train_idx]))
-    
-    # Get cluster members from clusters.json (these MUST be shown)
-    cluster_member_ids = []
-    if clusters is not None and rep_to_cluster is not None:
-        cluster_member_ids = get_cluster_members_for_target(target_id, clusters, rep_to_cluster)
-    print(f"  Found {len(cluster_member_ids)} cluster members from clusters.json")
     
     # Force include all cluster members in visualization
     cluster_member_train_indices = []
@@ -528,6 +619,8 @@ def process_subdir(subdir_path, subdir_name, train_data, train_ids,
             "global_avg_similarity": float(global_avg_sim),
             "avg_nearest_neighbor_similarity": float(global_avg_max_sim),
             "avg_target_similarity": float(avg_target_sim),
+            "avg_nn_ratio": float(avg_nn_ratio),
+            "avg_cluster_log_rge": float(avg_cluster_log_rge),
             "max_target_similarity": float(max_target_sim),
             "avg_prompt_adherence": float(avg_prompt_adherence),
             "intra_list_diversity": float(intra_list_diversity),
@@ -682,7 +775,7 @@ def compute_aggregated_metrics(results_by_cluster):
     
     # Collect all metric values
     metric_keys = [
-        'global_avg_sim', 'global_avg_max_sim', 'avg_target_sim', 
+        'global_avg_sim', 'global_avg_max_sim', 'avg_target_sim', 'avg_nn_ratio', 'avg_cluster_log_rge',
         'max_target_sim', 'avg_prompt_adherence', 'intra_list_diversity', 
         'total_variance'
     ]
@@ -745,9 +838,9 @@ def main():
     parser.add_argument(
         '--clap-model',
         type=str,
-        default='clap-laion-music',
+        default='clap-laion-music-base',
         choices=['clap-laion-audio', 'clap-laion-music', 'clap-laion-music-base'],
-        help='CLAP model to use: clap-laion-audio (general audio, HTSAT-tiny), clap-laion-music (music, HTSAT-tiny), or clap-laion-music-base (music, HTSAT-base) (default: clap-laion-music)'
+        help='CLAP model to use: clap-laion-audio (general audio, HTSAT-tiny), clap-laion-music (music, HTSAT-tiny), or clap-laion-music-base (music, HTSAT-base) (default: clap-laion-music-base)'
     )
     args = parser.parse_args()
     
@@ -921,12 +1014,13 @@ def main():
     print("\n" + "="*100)
     print("                                    SUMMARY RESULTS                                    ")
     print("="*100)
-    print(f"{'Subdirectory':<50} {'Glob Sim':>10} {'Tgt Sim':>10} {'Prompt Adh':>12} {'Diversity':>10}")
+    print(f"{'Subdirectory':<50} {'Glob Sim':>10} {'Tgt Sim':>10} {'NN Ratio':>10} {'Log-RGE':>12} {'Prompt Adh':>12} {'Diversity':>10}")
     print("-"*100)
     
     for subdir, metrics in sorted(all_results.items()):
         display_name = subdir if len(subdir) <= 48 else '...' + subdir[-45:]
         print(f"{display_name:<50} {metrics['global_avg_sim']:>10.4f} {metrics['avg_target_sim']:>10.4f} "
+              f"{metrics['avg_nn_ratio']:>10.4f} {metrics['avg_cluster_log_rge']:>12.4f} "
               f"{metrics['avg_prompt_adherence']:>12.4f} {metrics['intra_list_diversity']:>10.4f}")
     
     print("="*100)
@@ -935,8 +1029,8 @@ def main():
     overall_means = {}
     if all_results:
         metric_keys = ['global_avg_sim', 'global_avg_max_sim', 'avg_target_sim', 
-                       'max_target_sim', 'avg_prompt_adherence', 'intra_list_diversity', 
-                       'total_variance']
+                   'max_target_sim', 'avg_prompt_adherence', 'intra_list_diversity', 
+                   'total_variance', 'avg_nn_ratio', 'avg_cluster_log_rge']
         for key in metric_keys:
             values = [m[key] for m in all_results.values() if key in m]
             if values:
@@ -948,6 +1042,8 @@ def main():
         print(f"\nOVERALL MEANS (across {len(all_results)} subdirectories):")
         print(f"  Global Avg Similarity:     {overall_means.get('global_avg_sim', 0):.4f} ± {overall_means.get('global_avg_sim_std', 0):.4f}")
         print(f"  Avg NN Similarity:         {overall_means.get('global_avg_max_sim', 0):.4f} ± {overall_means.get('global_avg_max_sim_std', 0):.4f}")
+        print(f"  Avg NN Ratio:             {overall_means.get('avg_nn_ratio', 0):.4f} ± {overall_means.get('avg_nn_ratio_std', 0):.4f}")
+        print(f"  Avg Log-RGE (cluster):      {overall_means.get('avg_cluster_log_rge', 0):.4f} ± {overall_means.get('avg_cluster_log_rge_std', 0):.4f}")
         print(f"  Avg Target Similarity:     {overall_means.get('avg_target_sim', 0):.4f} ± {overall_means.get('avg_target_sim_std', 0):.4f}")
         print(f"  Avg Prompt Adherence:      {overall_means.get('avg_prompt_adherence', 0):.4f} ± {overall_means.get('avg_prompt_adherence_std', 0):.4f}")
         print(f"  Intra-list Diversity:      {overall_means.get('intra_list_diversity', 0):.4f} ± {overall_means.get('intra_list_diversity_std', 0):.4f}")
@@ -1001,6 +1097,8 @@ def main():
                 print(f"\n{config_name} ({aggregated['num_clusters']} clusters):")
                 print(f"  Global Avg Similarity:     {mean.get('global_avg_sim', 0):.4f} ± {std.get('global_avg_sim', 0):.4f}")
                 print(f"  Avg Target Similarity:     {mean.get('avg_target_sim', 0):.4f} ± {std.get('avg_target_sim', 0):.4f}")
+                print(f"  Avg NN Ratio:             {mean.get('avg_nn_ratio', 0):.4f} ± {std.get('avg_nn_ratio', 0):.4f}")
+                print(f"  Avg Log-RGE (cluster):      {mean.get('avg_cluster_log_rge', 0):.4f} ± {std.get('avg_cluster_log_rge', 0):.4f}")
                 print(f"  Max Target Similarity:     {mean.get('max_target_sim', 0):.4f} ± {std.get('max_target_sim', 0):.4f}")
                 print(f"  Avg Prompt Adherence:      {mean.get('avg_prompt_adherence', 0):.4f} ± {std.get('avg_prompt_adherence', 0):.4f}")
                 print(f"  Intra-list Diversity:      {mean.get('intra_list_diversity', 0):.4f} ± {std.get('intra_list_diversity', 0):.4f}")
@@ -1037,7 +1135,7 @@ def main():
         print("\n" + "="*120)
         print("                                    CONFIGURATION COMPARISON                                    ")
         print("="*120)
-        print(f"{'Configuration':<35} {'Glob Sim':>12} {'Tgt Sim':>12} {'Max Tgt':>12} {'Prompt Adh':>12} {'Diversity':>12} {'NN Sim':>12}")
+        print(f"{'Configuration':<35} {'Glob Sim':>12} {'Tgt Sim':>12} {'NN Ratio':>12} {'Log-RGE':>12} {'Max Tgt':>12} {'Prompt Adh':>12} {'Diversity':>12} {'NN Sim':>12}")
         print("-"*120)
         
         for config_name, agg in sorted(aggregated_all.items()):
@@ -1045,6 +1143,8 @@ def main():
             print(f"{config_name:<35} "
                   f"{mean.get('global_avg_sim', 0):>12.4f} "
                   f"{mean.get('avg_target_sim', 0):>12.4f} "
+                  f"{mean.get('avg_nn_ratio', 0):>12.4f} "
+                  f"{mean.get('avg_cluster_log_rge', 0):>12.4f} "
                   f"{mean.get('max_target_sim', 0):>12.4f} "
                   f"{mean.get('avg_prompt_adherence', 0):>12.4f} "
                   f"{mean.get('intra_list_diversity', 0):>12.4f} "

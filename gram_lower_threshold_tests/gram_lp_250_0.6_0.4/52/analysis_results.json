@@ -1,6 +1,6 @@
 {
     "experiment_info": {
-        "timestamp": "2026-02-11 12:42:25",
+        "timestamp": "2026-05-29 15:28:03",
         "subdir": "gram_lp_250_0.6_0.4/52",
         "target_id": "596707",
         "prompt": "Drum Loop by Stolting Media Group.\nvisit <a href=\"http://www.stoltingmediagroup.com\" rel=\"nofollow\">http://www.stoltingmediagroup.com</a>",
@@ -282,13 +282,15 @@
         ]
     },
     "metrics": {
-        "global_avg_similarity": 0.09102924913167953,
-        "avg_nearest_neighbor_similarity": 0.7040518522262573,
-        "avg_target_similarity": -0.045190028846263885,
-        "max_target_similarity": 0.1361035406589508,
-        "avg_prompt_adherence": 0.05138901248574257,
-        "intra_list_diversity": 0.10867005586624146,
-        "total_variance": 0.10867013037204742
+        "global_avg_similarity": 0.12825779616832733,
+        "avg_nearest_neighbor_similarity": 0.9220669269561768,
+        "avg_target_similarity": 0.8035047650337219,
+        "avg_nn_ratio": 1.0033631324768066,
+        "avg_cluster_log_rge": -3.6825986289978028,
+        "max_target_similarity": 0.9069973826408386,
+        "avg_prompt_adherence": 0.41045406460762024,
+        "intra_list_diversity": 0.062408447265625,
+        "total_variance": 0.06240853667259216
     },
     "generated_files": [
         "gen_1.wav",

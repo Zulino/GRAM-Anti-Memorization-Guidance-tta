@@ -1,7 +1,7 @@
 {
     "experiment_info": {
-        "timestamp": "2026-02-11 11:08:15",
-        "subdir": "32",
+        "timestamp": "2026-05-29 15:27:35",
+        "subdir": "gram_lp_250_0.6_0.4/32",
         "target_id": "4702",
         "prompt": "This sample is part of the \"PPG MULTISAMPLE 003 Lfoed\"\r\nsample pack. It is an experimental sound effect, suitable for\r\nexperimental music or as a sound effect. It consists of a texture with\r\nsome LFO\r\nand fades on it. In the sample pack there are 16 samples evenly spread\r\nacross 5 octaves (C1 till C6). The note in the sample name (C, E or G#)\r\ndoes not indicate the pitch of the sound but the key on my keyboard.\r\nThe sound was created on the PPG VSTi. After that normalising and fades where applied within Cubase SX.",
         "num_generations": 100,
@@ -18,13 +18,15 @@
         ]
     },
     "metrics": {
-        "global_avg_similarity": 0.059087276458740234,
-        "avg_nearest_neighbor_similarity": 0.6849523782730103,
-        "avg_target_similarity": 0.544134259223938,
-        "max_target_similarity": 0.7682057023048401,
-        "avg_prompt_adherence": 0.36672842502593994,
-        "intra_list_diversity": 0.2697101831436157,
-        "total_variance": 0.2697102427482605
+        "global_avg_similarity": 0.14251121878623962,
+        "avg_nearest_neighbor_similarity": 0.7451096773147583,
+        "avg_target_similarity": 0.3694978356361389,
+        "avg_nn_ratio": 1.0242336988449097,
+        "avg_cluster_log_rge": -0.41018288642168044,
+        "max_target_similarity": 0.46475979685783386,
+        "avg_prompt_adherence": 0.25310826301574707,
+        "intra_list_diversity": 0.15114659070968628,
+        "total_variance": 0.15114668011665344
     },
     "generated_files": [
         "gen_1.wav",

@@ -1,6 +1,6 @@
 {
     "experiment_info": {
-        "timestamp": "2026-02-11 12:41:59",
+        "timestamp": "2026-05-29 15:26:20",
         "subdir": "gram_hp_250_0.6_0.4/45",
         "target_id": "5301",
         "prompt": "Multisamples created with SubSynth 6 octaves for each note- no sharps or flats. Didn't catch the fact that the B notes are in 22k, sorry. Batch processed in cooledit to convert to aiff. Applet not recognizing my wav's today. I'll be more careful next time. ",
@@ -35,13 +35,15 @@
         ]
     },
     "metrics": {
-        "global_avg_similarity": 0.12194889038801193,
-        "avg_nearest_neighbor_similarity": 0.7956039905548096,
-        "avg_target_similarity": 0.21682071685791016,
-        "max_target_similarity": 0.42443469166755676,
-        "avg_prompt_adherence": 0.28784069418907166,
-        "intra_list_diversity": 0.301435649394989,
-        "total_variance": 0.3014357089996338
+        "global_avg_similarity": 0.16496631503105164,
+        "avg_nearest_neighbor_similarity": 0.683799147605896,
+        "avg_target_similarity": 0.20820549130439758,
+        "avg_nn_ratio": 1.0409327745437622,
+        "avg_cluster_log_rge": -0.5968206608295441,
+        "max_target_similarity": 0.5611076354980469,
+        "avg_prompt_adherence": -0.04654496908187866,
+        "intra_list_diversity": 0.429252028465271,
+        "total_variance": 0.429252028465271
     },
     "generated_files": [
         "gen_1.wav",

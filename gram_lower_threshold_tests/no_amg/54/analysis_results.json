@@ -1,6 +1,6 @@
 {
     "experiment_info": {
-        "timestamp": "2026-02-11 12:42:55",
+        "timestamp": "2026-05-29 15:32:43",
         "subdir": "no_amg/54",
         "target_id": "6035",
         "prompt": "A variation on \"Rhythmmaker Randomized 140 bpm loop -34.wav\", but with an even slower feel. This loop is part of the \"Rhythmmaker Randomized 140 bpm\r\nloops pack\" sample pack. They were all created with the Rhythmmaker\r\nensemble, part of the Electronic Instruments Vol. 1, within Reaktor. Tempo is 140 bpm\r\nand duration 1 bar in 4/4. The measure division is sometimes different\r\nfrom the the straight four on the floor and quite experimental.\r\nExported as a loop within Cubase SX and mastering done within Wavelab using several plugins (EQ, Stereo Enhancer, multiband compressor, limiter).",
@@ -16,13 +16,15 @@
         ]
     },
     "metrics": {
-        "global_avg_similarity": 0.10523897409439087,
-        "avg_nearest_neighbor_similarity": 0.6856855750083923,
-        "avg_target_similarity": 0.16659018397331238,
-        "max_target_similarity": 0.3795379102230072,
-        "avg_prompt_adherence": 0.21886344254016876,
-        "intra_list_diversity": 0.2977597117424011,
-        "total_variance": 0.2977597713470459
+        "global_avg_similarity": 0.17582057416439056,
+        "avg_nearest_neighbor_similarity": 0.7591990232467651,
+        "avg_target_similarity": 0.5112296938896179,
+        "avg_nn_ratio": 1.02485191822052,
+        "avg_cluster_log_rge": -0.6436441668868065,
+        "max_target_similarity": 0.8100308179855347,
+        "avg_prompt_adherence": 0.14655424654483795,
+        "intra_list_diversity": 0.26202499866485596,
+        "total_variance": 0.26202505826950073
     },
     "generated_files": [
         "gen_1.wav",

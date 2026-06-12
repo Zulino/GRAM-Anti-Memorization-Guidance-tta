@@ -1,7 +1,7 @@
 {
     "experiment_info": {
-        "timestamp": "2026-02-11 11:28:16",
-        "subdir": "26",
+        "timestamp": "2026-05-29 15:31:39",
+        "subdir": "gram_no_filt_250_0.6_0.4/26",
         "target_id": "4283",
         "prompt": "Power chords recorded through zoom processor direct to record producer. Build your own metal song...",
         "num_generations": 100,
@@ -19,13 +19,15 @@
         ]
     },
     "metrics": {
-        "global_avg_similarity": 0.048394449055194855,
-        "avg_nearest_neighbor_similarity": 0.5486993193626404,
-        "avg_target_similarity": 0.30902525782585144,
-        "max_target_similarity": 0.5769361257553101,
-        "avg_prompt_adherence": 0.17923220992088318,
-        "intra_list_diversity": 0.54167240858078,
-        "total_variance": 0.5416725277900696
+        "global_avg_similarity": 0.12060306966304779,
+        "avg_nearest_neighbor_similarity": 0.5826662182807922,
+        "avg_target_similarity": 0.4056526720523834,
+        "avg_nn_ratio": 1.0393719673156738,
+        "avg_cluster_log_rge": -0.3984441955387592,
+        "max_target_similarity": 0.5669760704040527,
+        "avg_prompt_adherence": 0.2949642539024353,
+        "intra_list_diversity": 0.4732840657234192,
+        "total_variance": 0.47328412532806396
     },
     "generated_files": [
         "gen_1.wav",

@@ -936,21 +936,24 @@ def make_despec_fn(
         elif enable_gram_guidance and not any_mask_active:
             if logger:
                 logger.debug(f"STEP {step_counter}: GRAM guidance skipped - no active elements (all below threshold).")
-                    
-            # Compute gradient from summed loss
-            if total_gram_loss != 0.0 and not isinstance(total_gram_loss, float):
-                try:
-                    grad_gram_raw = torch.autograd.grad(total_gram_loss, x, retain_graph=True, allow_unused=True)[0]
-                    
-                    if grad_gram_raw is not None:
+
+        # Compute gradient from summed GRAM loss (outside the if/elif so it runs when mask IS active)
+        if enable_gram_guidance and total_gram_loss != 0.0 and not isinstance(total_gram_loss, float):
+            try:
+                grad_gram_raw = torch.autograd.grad(total_gram_loss, x, retain_graph=True, allow_unused=True)[0]
+                
+                if grad_gram_raw is not None:
+                    if logger:
                         logger.debug(f"[DEBUG] Raw Grad Norm: {grad_gram_raw.norm().item():.4e}")
-                        G_gram = -c_gram * expand(torch.sqrt(1 - alpha_bar)) * grad_gram_raw
-                    else:
+                    G_gram = -c_gram * expand(torch.sqrt(1 - alpha_bar)) * grad_gram_raw
+                else:
+                    if logger:
                         logger.debug("[DEBUG] Grad calc failed (grad_gram_raw is None).")
- 
-                except RuntimeError as e:
+
+            except RuntimeError as e:
+                if logger:
                     logger.debug(f"[DEBUG] Grad calc ERROR: {e}")
-                    pass
+                pass
 
         if amg_filter_enabled and G_gram.abs().sum() > 1e-6:
             logger.debug(f"[FFT FILTER] Applying AMG FFT lowpass filter with cutoff ratio {amg_cutoff_ratio:.2f}, AMG gradient shape before filter: {G_gram.shape}")

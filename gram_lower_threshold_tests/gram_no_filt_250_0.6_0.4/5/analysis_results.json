@@ -1,7 +1,7 @@
 {
     "experiment_info": {
-        "timestamp": "2026-02-11 11:28:45",
-        "subdir": "5",
+        "timestamp": "2026-05-29 15:32:11",
+        "subdir": "gram_no_filt_250_0.6_0.4/5",
         "target_id": "2606",
         "prompt": "flamenco riff (very, very un-Russian!) on my balalaika, recorded with a cheap computer mic wedged under the strings below the bridge. ",
         "num_generations": 100,
@@ -15,13 +15,15 @@
         ]
     },
     "metrics": {
-        "global_avg_similarity": 0.06005920097231865,
-        "avg_nearest_neighbor_similarity": 0.5712729096412659,
-        "avg_target_similarity": 0.36342525482177734,
-        "max_target_similarity": 0.6951812505722046,
-        "avg_prompt_adherence": 0.24133281409740448,
-        "intra_list_diversity": 0.5025274157524109,
-        "total_variance": 0.5025274753570557
+        "global_avg_similarity": 0.13533300161361694,
+        "avg_nearest_neighbor_similarity": 0.6085088849067688,
+        "avg_target_similarity": 0.3139908015727997,
+        "avg_nn_ratio": 1.0535435676574707,
+        "avg_cluster_log_rge": -0.2154212075471878,
+        "max_target_similarity": 0.6239373683929443,
+        "avg_prompt_adherence": 0.1987035572528839,
+        "intra_list_diversity": 0.454647958278656,
+        "total_variance": 0.4546479880809784
     },
     "generated_files": [
         "gen_1.wav",

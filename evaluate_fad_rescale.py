@@ -15,7 +15,7 @@ Available models:
     - vggish: VGGish (AudioSet baseline)
     - clap-2023: Microsoft CLAP original
     - clap-laion-audio: CLAP trained on general audio
-    - clap-laion-music: CLAP trained on music (recommended for music)
+    - clap-laion-music: CLAP music (HTSAT-base) with custom music_audioset checkpoint
     - MERT-v1-95M: MERT full model (all layers concatenated, recommended)
     - MERT-v1-95M-{1-11}: MERT individual layers
 """
@@ -122,6 +122,136 @@ def _pad_audio_if_needed(file_path: str, model_name: str, target_sr: int, min_du
     except Exception:
         # If anything fails, return original path and let fadtk handle it
         return file_path
+
+
+def compute_fad_clap_music(
+    ref_files: List[str],
+    eval_files: List[str],
+    verbose: bool = True,
+    reduce_dim: Optional[int] = None,
+    reduce_method: str = 'pca',
+    reduce_fit: str = 'reference',
+) -> float:
+    """Compute FAD using CLAP laion-music (HTSAT-base) with custom checkpoint.
+
+    The model is loaded manually via laion_clap instead of fadtk,
+    using the music_audioset checkpoint stored locally.
+    """
+    import torch
+    import torchaudio
+    from stable_audio_tools.inference import amg_generation
+    from fadtk.fad import calc_embd_statistics, calc_frechet_distance
+
+    if len(ref_files) == 0:
+        raise SystemExit('No reference files provided.')
+    if len(eval_files) == 0:
+        raise SystemExit('No evaluation audio files found.')
+
+    if verbose:
+        print(f"[STEP] Starting FAD compute | model='clap-laion-music' (custom checkpoint), "
+              f"eval_files={len(eval_files)}, ref_files={len(ref_files)}")
+
+    # --- Load CLAP model with custom checkpoint ---
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    checkpoint_path = os.path.join(
+        os.path.dirname(__file__),
+        'model_cache/clap_checkpoints/music_audioset_epoch_15_esc_90.14.pt'
+    )
+    if not os.path.exists(checkpoint_path):
+        raise FileNotFoundError(f"CLAP checkpoint not found at {checkpoint_path}")
+
+    CLAP = amg_generation.laion_clap.CLAP_Module(enable_fusion=False, amodel="HTSAT-base", device=device)
+    CLAP.load_ckpt(checkpoint_path)
+    CLAP.eval()
+    for param in CLAP.parameters():
+        param.requires_grad = False
+
+    if verbose:
+        print(f"[STEP] Loaded CLAP music model (HTSAT-base, custom checkpoint from {checkpoint_path})")
+
+    # --- Helper: extract embedding from a single audio file ---
+    def _extract_embedding(file_path: str) -> Optional[np.ndarray]:
+        try:
+            audio, sr = torchaudio.load(file_path)
+            if sr != 48000:
+                audio = torchaudio.functional.resample(audio, sr, 48000)
+            audio = audio.to(torch.float32)
+            peak = audio.abs().max().clamp_min(1e-6)
+            audio = (audio / peak).clamp(-1, 1)
+            mono_audio = audio.mean(dim=0, keepdim=True).to(device)
+            with torch.no_grad():
+                emb = CLAP.get_audio_embedding_from_data(mono_audio, use_tensor=True)
+            return emb.cpu().numpy().flatten()
+        except Exception as e:
+            if verbose:
+                print(f"[WARN] Error extracting embedding from {file_path}: {e}")
+            return None
+
+    # --- Extract embeddings for eval and ref sets ---
+    def _extract_all(files: List[str], label: str) -> np.ndarray:
+        embs: List[np.ndarray] = []
+        errors = 0
+        if verbose:
+            print(f"[STEP] Extracting {label} embeddings... files={len(files)}")
+        for f in files:
+            vec = _extract_embedding(f)
+            if vec is not None:
+                embs.append(vec)
+            else:
+                errors += 1
+        if not embs:
+            raise SystemExit(f'No {label} embeddings could be extracted.')
+        mat = np.stack(embs, axis=0)
+        if verbose:
+            print(f"[STEP] {label.capitalize()} embeddings ready | loaded={len(embs)}, errors={errors}, shape={mat.shape}")
+        return mat
+
+    eval_mat = _extract_all(eval_files, 'evaluation')
+    ref_mat = _extract_all(ref_files, 'reference')
+
+    # --- Optional dimensionality reduction (same logic as compute_fad) ---
+    if reduce_dim is not None and reduce_dim > 0 and reduce_dim < ref_mat.shape[1]:
+        orig_D = ref_mat.shape[1]
+        fit_source = reduce_fit.lower()
+
+        if reduce_method.lower() == 'pca':
+            if fit_source == 'both':
+                fit_mat = np.vstack([ref_mat, eval_mat])
+            else:
+                fit_mat = ref_mat
+            mean = fit_mat.mean(axis=0)
+            Xc = fit_mat - mean
+            try:
+                U, S, Vt = np.linalg.svd(Xc, full_matrices=False)
+            except np.linalg.LinAlgError:
+                cov = np.cov(Xc, rowvar=False)
+                S, V = np.linalg.eigh(cov)
+                idx = np.argsort(S)[::-1]
+                Vt = V[:, idx].T
+            W = Vt[:reduce_dim].T
+            ref_mat = (ref_mat - mean) @ W
+            eval_mat = (eval_mat - mean) @ W
+        elif reduce_method.lower() in ('random', 'rp'):
+            from numpy.random import default_rng
+            rng = default_rng(42)
+            W = rng.standard_normal((orig_D, reduce_dim))
+            W, _ = np.linalg.qr(W)
+            W = W[:, :reduce_dim]
+            ref_mat = ref_mat @ W
+            eval_mat = eval_mat @ W
+
+        if verbose:
+            print(f"[STEP] Dim reduction: {reduce_method}, {orig_D} -> {ref_mat.shape[1]}")
+
+    # --- Compute FAD ---
+    mu_ref, cov_ref = calc_embd_statistics(ref_mat)
+    mu_eval, cov_eval = calc_embd_statistics(eval_mat)
+
+    if verbose:
+        print(f"[STEP] Stats | mu_ref={mu_ref.shape}, cov_ref={cov_ref.shape}")
+
+    fad_score = float(calc_frechet_distance(mu_ref, cov_ref, mu_eval, cov_eval))
+    return fad_score
 
 
 def compute_fad(
@@ -337,7 +467,7 @@ Available models:
   vggish            VGGish (AudioSet baseline, requires ~1s audio)
   clap-2023         Microsoft CLAP original
   clap-laion-audio  CLAP trained on general audio (LAION-Audio-630K)
-  clap-laion-music  CLAP trained on music (recommended for music tasks)
+  clap-laion-music  CLAP music (HTSAT-base) with custom music_audioset checkpoint
   MERT-v1-95M       MERT full model - all layers concatenated (recommended)
   MERT-v1-95M-{N}   MERT individual layer N (1-11, lower=acoustic, higher=semantic)
   all               Run vggish, clap-laion-music, and MERT-v1-95M
@@ -349,7 +479,7 @@ Examples:
         """
     )
     parser.add_argument('--model', '-m', type=str, default='vggish',
-                        help='Model to use for FAD computation (default: vggish)')
+                        help='Model to use for FAD computation (default: vggish). "all" runs a set of common models.')
     parser.add_argument('--eval-dir', '-e', type=str, default=None,
                         help='Directory with generated audio files to evaluate')
     parser.add_argument('--baseline-dir', '-b', type=str, default=None,
@@ -376,7 +506,7 @@ Examples:
     
     # Handle 'all' model option
     if args.model.lower() == 'all':
-        models_to_run = ['vggish', 'clap-laion-audio', 'MERT-v1-95M']
+        models_to_run = ['vggish', 'clap-laion-audio', 'clap-laion-music', 'MERT-v1-95M']
     else:
         models_to_run = [args.model]
     
@@ -403,15 +533,25 @@ Examples:
             print(f'{"="*60}')
         
         try:
-            fad_score = compute_fad(
-                ref_files,
-                eval_files,
-                model_name=MODEL,
-                verbose=(not QUIET),
-                reduce_dim=REDUCE_DIM,
-                reduce_method=REDUCE_METHOD,
-                reduce_fit=REDUCE_FIT,
-            )
+            if MODEL == 'clap-laion-music':
+                fad_score = compute_fad_clap_music(
+                    ref_files,
+                    eval_files,
+                    verbose=(not QUIET),
+                    reduce_dim=REDUCE_DIM,
+                    reduce_method=REDUCE_METHOD,
+                    reduce_fit=REDUCE_FIT,
+                )
+            else:
+                fad_score = compute_fad(
+                    ref_files,
+                    eval_files,
+                    model_name=MODEL,
+                    verbose=(not QUIET),
+                    reduce_dim=REDUCE_DIM,
+                    reduce_method=REDUCE_METHOD,
+                    reduce_fit=REDUCE_FIT,
+                )
             
             print(f'[RESULT] FAD ({MODEL}, sr={SR}) = {fad_score:.6f}')
             results[MODEL] = fad_score

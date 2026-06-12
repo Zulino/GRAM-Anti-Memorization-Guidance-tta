@@ -1,7 +1,7 @@
 {
     "experiment_info": {
-        "timestamp": "2026-02-11 11:15:02",
-        "subdir": "16",
+        "timestamp": "2026-05-29 15:28:35",
+        "subdir": "gram_lp_500_0.6_0.4/16",
         "target_id": "271416",
         "prompt": "sounds from the following packs where used as bases for the creation of this pack, then i used audacity and renoise to layer and process the samples\r\n\r\n<a href=\"http://www.freesound.org/people/pjcohen/packs/8851/\" rel=\"nofollow\">http://www.freesound.org/people/pjcohen/packs/8851/</a>\r\n<a href=\"http://www.freesound.org/people/sandyrb/packs/2265/\" rel=\"nofollow\">http://www.freesound.org/people/sandyrb/packs/2265/</a>\r\n<a href=\"http://www.freesound.org/people/quartertone/packs/8588/\" rel=\"nofollow\">http://www.freesound.org/people/quartertone/packs/8588/</a>\r\n<a href=\"http://www.freesound.org/people/Theriavirra/packs/16665/\" rel=\"nofollow\">http://www.freesound.org/people/Theriavirra/packs/16665/</a>\r\n<a href=\"http://www.freesound.org/people/CBeeching/packs/4857/\" rel=\"nofollow\">http://www.freesound.org/people/CBeeching/packs/4857/</a>\r\n<a href=\"http://www.freesound.org/people/zgump/packs/6172/\" rel=\"nofollow\">http://www.freesound.org/people/zgump/packs/6172/</a>\r\n<a href=\"http://www.freesound.org/people/Walter_Odington/packs/1583/\" rel=\"nofollow\">http://www.freesound.org/people/Walter_Odington/packs/1583/</a>\r\n<a href=\"http://www.freesound.org/people/quartertone/packs/8491/\" rel=\"nofollow\">http://www.freesound.org/people/quartertone/packs/8491/</a>\r\n<a href=\"http://www.freesound.org/people/Alteration/packs/12139/\" rel=\"nofollow\">http://www.freesound.org/people/Alteration/packs/12139/</a>",
         "num_generations": 100,
@@ -15,13 +15,15 @@
         ]
     },
     "metrics": {
-        "global_avg_similarity": 0.1714061200618744,
+        "global_avg_similarity": 0.17146365344524384,
         "avg_nearest_neighbor_similarity": 0.6654238104820251,
-        "avg_target_similarity": 0.1884128302335739,
-        "max_target_similarity": 0.4511953592300415,
-        "avg_prompt_adherence": 0.30348917841911316,
+        "avg_target_similarity": 0.18841280043125153,
+        "avg_nn_ratio": 1.03941810131073,
+        "avg_cluster_log_rge": -0.11406713845208287,
+        "max_target_similarity": 0.45119529962539673,
+        "avg_prompt_adherence": 0.3034892678260803,
         "intra_list_diversity": 0.5427261590957642,
-        "total_variance": 0.5427261590957642
+        "total_variance": 0.5427262187004089
     },
     "generated_files": [
         "gen_1.wav",

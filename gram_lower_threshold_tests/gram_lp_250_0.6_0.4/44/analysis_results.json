@@ -1,7 +1,7 @@
 {
     "experiment_info": {
-        "timestamp": "2026-02-11 11:08:38",
-        "subdir": "44",
+        "timestamp": "2026-05-29 15:27:52",
+        "subdir": "gram_lp_250_0.6_0.4/44",
         "target_id": "5131",
         "prompt": "\"ATTACK loop 140 bpm-00.wav\" till \"ATTACK loop 140 bpm-31.wav\"\r\nare all part of the \"ATTACK LOOP 6\" sample package and belong together\r\nas they are all variations on the same 1 measure 4/4 140 bpm drumloop. The loop has a techno-trance\r\nfeel. The first four loops (00 till 03) contain some variations of the\r\npure drumloop, where 00 is the most minimal and 03 the fullest. All\r\nother variations add other sound effects, some of them being sounds\r\nwith a certain pitch, mostly C. These loop are suitable for your trance\r\nand techno productions. They were created using the Waldorf Attack VSTi within Cubase SX. Mastering (EQ, Stereo Enhancer, Multi-Band expand/compress/limit, dither, fades at start and/or end) done within Wavelab.\r\n",
         "num_generations": 100,
@@ -29,13 +29,15 @@
         ]
     },
     "metrics": {
-        "global_avg_similarity": 0.09146799892187119,
-        "avg_nearest_neighbor_similarity": 0.7194416522979736,
-        "avg_target_similarity": 0.6240205764770508,
-        "max_target_similarity": 0.7477589845657349,
-        "avg_prompt_adherence": 0.3469952344894409,
-        "intra_list_diversity": 0.3070957660675049,
-        "total_variance": 0.30709582567214966
+        "global_avg_similarity": 0.1658542901277542,
+        "avg_nearest_neighbor_similarity": 0.733843982219696,
+        "avg_target_similarity": 0.6643080115318298,
+        "avg_nn_ratio": 1.0251309871673584,
+        "avg_cluster_log_rge": -1.3316402620077132,
+        "max_target_similarity": 0.8281859159469604,
+        "avg_prompt_adherence": 0.24146823585033417,
+        "intra_list_diversity": 0.26961541175842285,
+        "total_variance": 0.2696154713630676
     },
     "generated_files": [
         "gen_1.wav",

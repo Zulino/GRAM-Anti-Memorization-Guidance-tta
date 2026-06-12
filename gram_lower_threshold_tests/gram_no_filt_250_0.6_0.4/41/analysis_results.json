@@ -1,7 +1,7 @@
 {
     "experiment_info": {
-        "timestamp": "2026-02-11 11:28:35",
-        "subdir": "41",
+        "timestamp": "2026-05-29 15:32:01",
+        "subdir": "gram_no_filt_250_0.6_0.4/41",
         "target_id": "4826",
         "prompt": "This sample is part of the \"PPG\r\nMULTISAMPLE 010 Little Mad Dance\" sample pack. It is a digital sound\r\nwith a melodic element in it and some wild variations when changing\r\nfrom pitch across the keyboard. Especially the higher notes on the\r\nkeyboard have some harsh digital distortion. In the sample pack there\r\nare 16 samples evenly spread across 5 octaves (C1 till C6). The note in\r\nthe sample name (C, E or G#) does not indicate the pitch of the sound\r\nbut the key on my keyboard. The sound was created on the PPG VSTi. After that normalising and fades where applied within Cubase SX.",
         "num_generations": 100,
@@ -18,13 +18,15 @@
         ]
     },
     "metrics": {
-        "global_avg_similarity": 0.04691339656710625,
-        "avg_nearest_neighbor_similarity": 0.5482534170150757,
-        "avg_target_similarity": 0.37638038396835327,
-        "max_target_similarity": 0.5918729305267334,
-        "avg_prompt_adherence": 0.2950904071331024,
-        "intra_list_diversity": 0.5303319096565247,
-        "total_variance": 0.5303319692611694
+        "global_avg_similarity": 0.11369770020246506,
+        "avg_nearest_neighbor_similarity": 0.5859949588775635,
+        "avg_target_similarity": 0.4009057283401489,
+        "avg_nn_ratio": 1.0455394983291626,
+        "avg_cluster_log_rge": -0.34192392364144325,
+        "max_target_similarity": 0.6379406452178955,
+        "avg_prompt_adherence": 0.32689279317855835,
+        "intra_list_diversity": 0.4941267967224121,
+        "total_variance": 0.4941268563270569
     },
     "generated_files": [
         "gen_1.wav",

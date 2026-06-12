@@ -1,7 +1,7 @@
 {
     "experiment_info": {
-        "timestamp": "2026-02-11 11:08:36",
-        "subdir": "43",
+        "timestamp": "2026-05-29 15:27:51",
+        "subdir": "gram_lp_250_0.6_0.4/43",
         "target_id": "5108",
         "prompt": "\"Attack loop 114 bpm-14.wav\" is part of the \"ATTACK LOOP 5\" sample pack. It is a one measure 4/4 drumloop at 114 bpm, created with the Waldorf Attack VSTi within Cubase SX.\r\nThe loop has a low tempo more experimental electro feel with some\r\nexpressive bass sounds, most of them having a pitch of C. The drumloop\r\nfor loops 10 till 19 is always the same. The variation is in the bass.\r\nLoops 18 and 19 contain the drums only, where 09 is the most stripped\r\nversion of the two. Mastering (EQ, Stereo Enhancer, Multi-Band expand/compress/limit, dither, fades at start and/or end) done within Wavelab.\r\n",
         "num_generations": 100,
@@ -17,13 +17,15 @@
         ]
     },
     "metrics": {
-        "global_avg_similarity": 0.09412509202957153,
-        "avg_nearest_neighbor_similarity": 0.693711519241333,
-        "avg_target_similarity": 0.5231897234916687,
-        "max_target_similarity": 0.7563552856445312,
-        "avg_prompt_adherence": 0.27943849563598633,
-        "intra_list_diversity": 0.3159469962120056,
-        "total_variance": 0.3159470558166504
+        "global_avg_similarity": 0.1697939932346344,
+        "avg_nearest_neighbor_similarity": 0.70576411485672,
+        "avg_target_similarity": 0.44571706652641296,
+        "avg_nn_ratio": 1.0342485904693604,
+        "avg_cluster_log_rge": -0.6982894037663937,
+        "max_target_similarity": 0.7011886835098267,
+        "avg_prompt_adherence": 0.24258753657341003,
+        "intra_list_diversity": 0.300314724445343,
+        "total_variance": 0.3003148138523102
     },
     "generated_files": [
         "gen_1.wav",

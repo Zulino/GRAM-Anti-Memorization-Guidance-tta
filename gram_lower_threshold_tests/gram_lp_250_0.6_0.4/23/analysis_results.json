@@ -1,7 +1,7 @@
 {
     "experiment_info": {
-        "timestamp": "2026-02-11 11:07:58",
-        "subdir": "23",
+        "timestamp": "2026-05-29 15:27:23",
+        "subdir": "gram_lp_250_0.6_0.4/23",
         "target_id": "3951",
         "prompt": "Generated with Cool Edit 96. Sounds like a UFO taking off... ",
         "num_generations": 100,
@@ -14,13 +14,15 @@
         ]
     },
     "metrics": {
-        "global_avg_similarity": 0.04026741907000542,
-        "avg_nearest_neighbor_similarity": 0.6375041604042053,
-        "avg_target_similarity": 0.3674601912498474,
-        "max_target_similarity": 0.6264040470123291,
-        "avg_prompt_adherence": 0.2954648435115814,
-        "intra_list_diversity": 0.3131524920463562,
-        "total_variance": 0.313152551651001
+        "global_avg_similarity": 0.09763482213020325,
+        "avg_nearest_neighbor_similarity": 0.5995280146598816,
+        "avg_target_similarity": 0.37775638699531555,
+        "avg_nn_ratio": 1.0534532070159912,
+        "avg_cluster_log_rge": -0.2191904329881072,
+        "max_target_similarity": 0.5719550848007202,
+        "avg_prompt_adherence": 0.3010534644126892,
+        "intra_list_diversity": 0.29867905378341675,
+        "total_variance": 0.29867908358573914
     },
     "generated_files": [
         "gen_1.wav",

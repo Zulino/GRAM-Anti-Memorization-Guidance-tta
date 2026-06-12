@@ -1,7 +1,7 @@
 {
     "experiment_info": {
-        "timestamp": "2026-02-11 11:07:45",
-        "subdir": "17",
+        "timestamp": "2026-05-29 15:27:14",
+        "subdir": "gram_lp_250_0.6_0.4/17",
         "target_id": "271959",
         "prompt": "Hi there, my name is Rindre and I love playing RPG games and I'm making my own.\r\n\r\nI like to voice act. and I want to lend my voice to a game project.\r\n\r\nIf you are interested in working with me, please don't hesitate to contact me via email: rinderedere@gmail.com\r\n\r\nMy only rule is to always credit me.\r\n\r\nI prefer if you link to my game development blog (<a href=\"http://pakilusin.co.vu/)\" rel=\"nofollow\">http://pakilusin.co.vu/)</a> as Rindre Rindere, or link back to my Freesound account Montblanccandies.",
         "num_generations": 100,
@@ -45,13 +45,15 @@
         ]
     },
     "metrics": {
-        "global_avg_similarity": 0.07522989064455032,
-        "avg_nearest_neighbor_similarity": 0.593971848487854,
-        "avg_target_similarity": 0.2208770364522934,
-        "max_target_similarity": 0.5152674913406372,
-        "avg_prompt_adherence": 0.17511802911758423,
-        "intra_list_diversity": 0.5152769386768341,
-        "total_variance": 0.5152769088745117
+        "global_avg_similarity": 0.14296434819698334,
+        "avg_nearest_neighbor_similarity": 0.630884051322937,
+        "avg_target_similarity": 0.26213496923446655,
+        "avg_nn_ratio": 1.0373181104660034,
+        "avg_cluster_log_rge": -0.784975623190403,
+        "max_target_similarity": 0.5770174860954285,
+        "avg_prompt_adherence": 0.06153666228055954,
+        "intra_list_diversity": 0.48478037118911743,
+        "total_variance": 0.48478037118911743
     },
     "generated_files": [
         "gen_1.wav",

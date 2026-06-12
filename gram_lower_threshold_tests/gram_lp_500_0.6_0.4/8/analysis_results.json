@@ -1,7 +1,7 @@
 {
     "experiment_info": {
-        "timestamp": "2026-02-11 11:16:26",
-        "subdir": "8",
+        "timestamp": "2026-05-29 15:29:39",
+        "subdir": "gram_lp_500_0.6_0.4/8",
         "target_id": "270754",
         "prompt": "Multitracking Session for Soundscape Creation. BcnLab.",
         "num_generations": 100,
@@ -36,13 +36,15 @@
         ]
     },
     "metrics": {
-        "global_avg_similarity": 0.10202129185199738,
-        "avg_nearest_neighbor_similarity": 0.7050013542175293,
-        "avg_target_similarity": 0.20570529997348785,
-        "max_target_similarity": 0.5698754191398621,
-        "avg_prompt_adherence": 0.36241456866264343,
-        "intra_list_diversity": 0.3242836594581604,
-        "total_variance": 0.3242836594581604
+        "global_avg_similarity": 0.10058612376451492,
+        "avg_nearest_neighbor_similarity": 0.702349841594696,
+        "avg_target_similarity": 0.19622035324573517,
+        "avg_nn_ratio": 1.0239753723144531,
+        "avg_cluster_log_rge": -0.40472104385495183,
+        "max_target_similarity": 0.5078145265579224,
+        "avg_prompt_adherence": 0.3652394711971283,
+        "intra_list_diversity": 0.3127387762069702,
+        "total_variance": 0.3127388656139374
     },
     "generated_files": [
         "gen_1.wav",

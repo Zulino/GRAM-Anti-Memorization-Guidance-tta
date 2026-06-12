@@ -1,7 +1,7 @@
 {
     "experiment_info": {
-        "timestamp": "2026-02-11 11:28:27",
-        "subdir": "35",
+        "timestamp": "2026-05-29 15:31:51",
+        "subdir": "gram_no_filt_250_0.6_0.4/35",
         "target_id": "4741",
         "prompt": "This sample is part of the \"PPG MULTISAMPLE 005 Detroit 100 bpm Chord Arp\" sample pack. It is an arpeggiated dissonant chord at 100 bpm.\r\nIn the sample pack there are 16 samples evenly spread across 5 octaves\r\n(C1 till C6). The note in the sample name (C, E or G#) does not\r\nindicate the pitch of the sound but the key on my keyboard. The sound\r\nwas created on the PPG VSTi. After that normalising and fades where applied within Cubase SX.",
         "num_generations": 100,
@@ -24,13 +24,15 @@
         ]
     },
     "metrics": {
-        "global_avg_similarity": 0.046669770032167435,
-        "avg_nearest_neighbor_similarity": 0.5608329176902771,
-        "avg_target_similarity": 0.4699147641658783,
-        "max_target_similarity": 0.6592016220092773,
-        "avg_prompt_adherence": 0.22411097586154938,
-        "intra_list_diversity": 0.33616548776626587,
-        "total_variance": 0.33616554737091064
+        "global_avg_similarity": 0.11755406111478806,
+        "avg_nearest_neighbor_similarity": 0.6012383699417114,
+        "avg_target_similarity": 0.460432231426239,
+        "avg_nn_ratio": 1.0293625593185425,
+        "avg_cluster_log_rge": -0.5441692374646664,
+        "max_target_similarity": 0.6854864954948425,
+        "avg_prompt_adherence": 0.2619348466396332,
+        "intra_list_diversity": 0.31532353162765503,
+        "total_variance": 0.3153235912322998
     },
     "generated_files": [
         "gen_1.wav",

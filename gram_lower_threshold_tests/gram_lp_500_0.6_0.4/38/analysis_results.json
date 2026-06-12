@@ -1,7 +1,7 @@
 {
     "experiment_info": {
-        "timestamp": "2026-02-11 11:15:47",
-        "subdir": "38",
+        "timestamp": "2026-05-29 15:29:06",
+        "subdir": "gram_lp_500_0.6_0.4/38",
         "target_id": "487",
         "prompt": "Sounds of beatboxing into a plastic djembe recorded with a cheap plastic toy microphone. ",
         "num_generations": 100,
@@ -18,9 +18,11 @@
         ]
     },
     "metrics": {
-        "global_avg_similarity": 0.1723596751689911,
+        "global_avg_similarity": 0.17239636182785034,
         "avg_nearest_neighbor_similarity": 0.663666844367981,
-        "avg_target_similarity": 0.2279783934354782,
+        "avg_target_similarity": 0.2279784381389618,
+        "avg_nn_ratio": 1.0350713729858398,
+        "avg_cluster_log_rge": -0.2763481043279171,
         "max_target_similarity": 0.5890332460403442,
         "avg_prompt_adherence": 0.16949306428432465,
         "intra_list_diversity": 0.5856509208679199,

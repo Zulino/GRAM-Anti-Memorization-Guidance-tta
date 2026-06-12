@@ -1,6 +1,6 @@
 {
     "experiment_info": {
-        "timestamp": "2026-02-11 12:42:21",
+        "timestamp": "2026-05-29 15:27:57",
         "subdir": "gram_lp_250_0.6_0.4/48",
         "target_id": "5366",
         "prompt": "Recorded direct with a Peavey Dynabass in passive mode, active mode EQ is nice but noisy as hell so I never use it. Ran the bass through my Zoom bass processor and played all notes on E string up to 16th fret then went the rest of the way up the strings and onto highest fret on G string. ",
@@ -13,13 +13,15 @@
         ]
     },
     "metrics": {
-        "global_avg_similarity": 0.08313911408185959,
-        "avg_nearest_neighbor_similarity": 0.6215483546257019,
-        "avg_target_similarity": 0.2232964038848877,
-        "max_target_similarity": 0.4562005400657654,
-        "avg_prompt_adherence": 0.13753388822078705,
-        "intra_list_diversity": 0.38553178310394287,
-        "total_variance": 0.38553178310394287
+        "global_avg_similarity": 0.1399519145488739,
+        "avg_nearest_neighbor_similarity": 0.6469064354896545,
+        "avg_target_similarity": 0.37987852096557617,
+        "avg_nn_ratio": 1.040071964263916,
+        "avg_cluster_log_rge": -0.31630726628005507,
+        "max_target_similarity": 0.6285575032234192,
+        "avg_prompt_adherence": 0.14612585306167603,
+        "intra_list_diversity": 0.44568681716918945,
+        "total_variance": 0.44568684697151184
     },
     "generated_files": [
         "gen_1.wav",

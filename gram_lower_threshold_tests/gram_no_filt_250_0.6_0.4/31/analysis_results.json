@@ -1,7 +1,7 @@
 {
     "experiment_info": {
-        "timestamp": "2026-02-11 11:28:21",
-        "subdir": "31",
+        "timestamp": "2026-05-29 15:31:45",
+        "subdir": "gram_no_filt_250_0.6_0.4/31",
         "target_id": "4567",
         "prompt": "This is loop 52 in a series of 135 loops that belong  together. They all have a deep dubspace feel in 1 bar 4/4 at 60 bpm and belong to the \"Convoloops pack 02 - bare bone dubspace 60 bpm\" sample pack. They all have the same name: \"convoluted bare bone loop 60 bpm\"\r\nwith three numbers as suffix. The first of the three numbers indicates\r\na group of samples with a similar sound and feel. The most rhythmic\r\nones are these with 1 till 4 as last number in the suffix and these\r\nwith 5 till 8 are more effects. Finally number 9 as the last number in\r\nthe suffix is the start of the delay and/or reverb\r\ntail of the previous loop. The second number separates variations in\r\npitch of the initial loop before any processing is applied. Of these\r\nvariations number 5 is more granular &amp; experimental. All loops were\r\ncreated using the microtonik VSTi.\r\nI took the bare bones preset and convoluted it with some variations of\r\nitself. After this process I added some more convolution with another\r\nSIR, some diffusion, delay &amp; chorus with the Fusion Reflector\r\nensemble from Native Instruments Reaktor, and some more character with (you never guess it) the excellent Character plugin from my TC powercore firewire. All this was done within Cubase SX.\r\nAfter that I mastered these loops within Wavelab using several plugins:\r\nfades, equalising, multiband compressing, limiting &amp; dither.\r\n",
         "num_generations": 100,
@@ -13,13 +13,15 @@
         ]
     },
     "metrics": {
-        "global_avg_similarity": 0.062204498797655106,
-        "avg_nearest_neighbor_similarity": 0.5853747129440308,
-        "avg_target_similarity": 0.2519438564777374,
-        "max_target_similarity": 0.43401414155960083,
-        "avg_prompt_adherence": 0.14583028852939606,
-        "intra_list_diversity": 0.5282662808895111,
-        "total_variance": 0.5282663106918335
+        "global_avg_similarity": 0.1231093481183052,
+        "avg_nearest_neighbor_similarity": 0.5905914306640625,
+        "avg_target_similarity": 0.24073418974876404,
+        "avg_nn_ratio": 1.0418540239334106,
+        "avg_cluster_log_rge": -0.15200417228043078,
+        "max_target_similarity": 0.45632511377334595,
+        "avg_prompt_adherence": 0.23475651443004608,
+        "intra_list_diversity": 0.4549781084060669,
+        "total_variance": 0.45497819781303406
     },
     "generated_files": [
         "gen_1.wav",

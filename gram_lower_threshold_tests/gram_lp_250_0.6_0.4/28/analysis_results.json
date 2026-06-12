@@ -1,7 +1,7 @@
 {
     "experiment_info": {
-        "timestamp": "2026-02-11 11:08:06",
-        "subdir": "28",
+        "timestamp": "2026-05-29 15:27:29",
+        "subdir": "gram_lp_250_0.6_0.4/28",
         "target_id": "4455",
         "prompt": "Subtractive synthesis bass multisamples created with subsynth and converted to AIFF for applet recognition. ",
         "num_generations": 100,
@@ -31,13 +31,15 @@
         ]
     },
     "metrics": {
-        "global_avg_similarity": 0.10034157335758209,
-        "avg_nearest_neighbor_similarity": 0.6480836272239685,
-        "avg_target_similarity": 0.1988542079925537,
-        "max_target_similarity": 0.49939268827438354,
-        "avg_prompt_adherence": 0.14065100252628326,
-        "intra_list_diversity": 0.5422784984111786,
-        "total_variance": 0.542278528213501
+        "global_avg_similarity": 0.1736396998167038,
+        "avg_nearest_neighbor_similarity": 0.7025112509727478,
+        "avg_target_similarity": 0.29486748576164246,
+        "avg_nn_ratio": 1.0491307973861694,
+        "avg_cluster_log_rge": -0.5866187678277492,
+        "max_target_similarity": 0.7233532667160034,
+        "avg_prompt_adherence": 0.19176015257835388,
+        "intra_list_diversity": 0.5328457355499268,
+        "total_variance": 0.5328457951545715
     },
     "generated_files": [
         "gen_1.wav",

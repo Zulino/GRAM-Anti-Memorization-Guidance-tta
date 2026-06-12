@@ -1,7 +1,7 @@
 {
     "experiment_info": {
-        "timestamp": "2026-02-11 11:15:43",
-        "subdir": "36",
+        "timestamp": "2026-05-29 15:29:03",
+        "subdir": "gram_lp_500_0.6_0.4/36",
         "target_id": "4763",
         "prompt": "This sample is part of the \"PPG\r\nMULTISAMPLE 006 Digital Mallet\" sample pack. It is a short bell sound\r\nwith some harsh digital distorion above it, especially at the higher\r\npitches. In the sample pack there are 16 samples evenly spread across 5\r\noctaves (C1 till C6). The note in the sample name (C, E or G#) does not\r\nindicate the pitch of the sound but the key on my keyboard. The sound\r\nwas created on the PPG VSTi. After that normalising and fades where applied within Cubase SX.",
         "num_generations": 100,
@@ -18,11 +18,13 @@
         ]
     },
     "metrics": {
-        "global_avg_similarity": 0.11920104175806046,
-        "avg_nearest_neighbor_similarity": 0.6140759587287903,
+        "global_avg_similarity": 0.11929309368133545,
+        "avg_nearest_neighbor_similarity": 0.6140760183334351,
         "avg_target_similarity": 0.3999154567718506,
+        "avg_nn_ratio": 1.0393261909484863,
+        "avg_cluster_log_rge": -0.3589452221989632,
         "max_target_similarity": 0.6441344618797302,
-        "avg_prompt_adherence": 0.22653089463710785,
+        "avg_prompt_adherence": 0.22653090953826904,
         "intra_list_diversity": 0.5300809144973755,
         "total_variance": 0.5300809144973755
     },

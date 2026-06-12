@@ -1,6 +1,6 @@
 {
     "experiment_info": {
-        "timestamp": "2026-02-11 12:42:14",
+        "timestamp": "2026-05-29 15:26:53",
         "subdir": "gram_lp_250_0.3_0.4/50",
         "target_id": "5672",
         "prompt": "A short noise burst. A variation on \"Attack Zound-200\". This sound was created using the Waldorf Attack VSTi within Cubase SX. Normalised and dithered to 16 bit 44.1 kHz.",
@@ -13,13 +13,15 @@
         ]
     },
     "metrics": {
-        "global_avg_similarity": 0.10938970744609833,
-        "avg_nearest_neighbor_similarity": 0.6723886132240295,
-        "avg_target_similarity": 0.15514233708381653,
-        "max_target_similarity": 0.38425177335739136,
-        "avg_prompt_adherence": 0.17596271634101868,
-        "intra_list_diversity": 0.4701572060585022,
-        "total_variance": 0.4701572060585022
+        "global_avg_similarity": 0.15450045466423035,
+        "avg_nearest_neighbor_similarity": 0.6414821743965149,
+        "avg_target_similarity": 0.2353924959897995,
+        "avg_nn_ratio": 1.042618989944458,
+        "avg_cluster_log_rge": -0.1375417020916939,
+        "max_target_similarity": 0.5274995565414429,
+        "avg_prompt_adherence": 0.13246187567710876,
+        "intra_list_diversity": 0.5379366874694824,
+        "total_variance": 0.5379366874694824
     },
     "generated_files": [
         "gen_1.wav",

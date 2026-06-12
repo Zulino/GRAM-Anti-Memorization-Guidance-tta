@@ -1,7 +1,7 @@
 {
     "experiment_info": {
-        "timestamp": "2026-02-11 11:28:34",
-        "subdir": "40",
+        "timestamp": "2026-05-29 15:31:59",
+        "subdir": "gram_no_filt_250_0.6_0.4/40",
         "target_id": "4805",
         "prompt": "This sample is part of the \"PPG\r\nMULTISAMPLE 009 Noisy Digital Octaver\" sample pack. It is a digital\r\nsound effect that has some repetitions with a pitch that is one octave\r\nhigher. In the sample pack there are 16 samples evenly spread across 5\r\noctaves (C1 till C6). The note in the sample name (C, E or G#) does\r\nindicate the pitch of the sound but the key on my keyboard. The sound\r\nwas created on the PPG VSTi. After that normalising and fades where applied within Cubase SX.",
         "num_generations": 100,
@@ -13,13 +13,15 @@
         ]
     },
     "metrics": {
-        "global_avg_similarity": 0.052256207913160324,
-        "avg_nearest_neighbor_similarity": 0.5512268543243408,
-        "avg_target_similarity": 0.2672309875488281,
-        "max_target_similarity": 0.5739900469779968,
-        "avg_prompt_adherence": 0.2397388368844986,
-        "intra_list_diversity": 0.5256296098232269,
-        "total_variance": 0.5256296396255493
+        "global_avg_similarity": 0.11770746111869812,
+        "avg_nearest_neighbor_similarity": 0.5824805498123169,
+        "avg_target_similarity": 0.3670899569988251,
+        "avg_nn_ratio": 1.0356611013412476,
+        "avg_cluster_log_rge": -0.26828053038567307,
+        "max_target_similarity": 0.626794695854187,
+        "avg_prompt_adherence": 0.1949765533208847,
+        "intra_list_diversity": 0.5001153349876404,
+        "total_variance": 0.5001153945922852
     },
     "generated_files": [
         "gen_1.wav",

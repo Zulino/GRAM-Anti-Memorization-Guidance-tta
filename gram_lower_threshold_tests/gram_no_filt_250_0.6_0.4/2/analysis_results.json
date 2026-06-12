@@ -1,7 +1,7 @@
 {
     "experiment_info": {
-        "timestamp": "2026-02-11 11:28:07",
-        "subdir": "2",
+        "timestamp": "2026-05-29 15:31:30",
+        "subdir": "gram_no_filt_250_0.6_0.4/2",
         "target_id": "1980",
         "prompt": "126bpm 4/4. 4 measures with a fill. recorded with a pair of Neumann TLM 103s into protools.",
         "num_generations": 100,
@@ -13,13 +13,15 @@
         ]
     },
     "metrics": {
-        "global_avg_similarity": 0.08374742418527603,
-        "avg_nearest_neighbor_similarity": 0.6438774466514587,
-        "avg_target_similarity": 0.33432433009147644,
-        "max_target_similarity": 0.5743043422698975,
-        "avg_prompt_adherence": 0.3063156008720398,
-        "intra_list_diversity": 0.4023299217224121,
-        "total_variance": 0.4023299515247345
+        "global_avg_similarity": 0.15481849014759064,
+        "avg_nearest_neighbor_similarity": 0.695178210735321,
+        "avg_target_similarity": 0.3587794005870819,
+        "avg_nn_ratio": 1.0260882377624512,
+        "avg_cluster_log_rge": -0.2073391453549266,
+        "max_target_similarity": 0.5452431440353394,
+        "avg_prompt_adherence": 0.22172798216342926,
+        "intra_list_diversity": 0.34941965341567993,
+        "total_variance": 0.3494197130203247
     },
     "generated_files": [
         "gen_1.wav",

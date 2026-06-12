@@ -94,8 +94,8 @@ c2 = 0
 c3 = 0
 c_gram = 500
 guidance_rescale = 0.0
-lambda_min = 0.7
-lambda_max = 0.8
+lambda_min = 0.4
+lambda_max = 0.5
 denoising_steps = 100
 
 #prompt = "Acoustic drum loop with a tempo of 140 bpm, featuring a blend of kick, snare, hi-hats, and percussion elements. The loop has a driving rhythm suitable for electronic music genres such as techno and trance. It includes subtle variations in dynamics and texture to keep the groove interesting over time."

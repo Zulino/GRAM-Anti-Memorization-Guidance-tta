@@ -1,7 +1,7 @@
 {
     "experiment_info": {
-        "timestamp": "2026-02-11 11:28:33",
-        "subdir": "4",
+        "timestamp": "2026-05-29 15:31:58",
+        "subdir": "gram_no_filt_250_0.6_0.4/4",
         "target_id": "2535",
         "prompt": "A single thunder clap with rain. Stereo. Recorded with a minidisc recorder and an AT822 mic. Edited in Protools and saved as a 48/16 wav file.",
         "num_generations": 100,
@@ -17,13 +17,15 @@
         ]
     },
     "metrics": {
-        "global_avg_similarity": 0.02098057046532631,
-        "avg_nearest_neighbor_similarity": 0.4945283532142639,
-        "avg_target_similarity": 0.2037341594696045,
-        "max_target_similarity": 0.6861562728881836,
-        "avg_prompt_adherence": 0.1721809208393097,
-        "intra_list_diversity": 0.5189530849456787,
-        "total_variance": 0.5189531445503235
+        "global_avg_similarity": 0.07334990799427032,
+        "avg_nearest_neighbor_similarity": 0.5231726169586182,
+        "avg_target_similarity": 0.20080134272575378,
+        "avg_nn_ratio": 1.0665969848632812,
+        "avg_cluster_log_rge": -0.17773079289123417,
+        "max_target_similarity": 0.5827996730804443,
+        "avg_prompt_adherence": 0.1179942935705185,
+        "intra_list_diversity": 0.4552348852157593,
+        "total_variance": 0.45523494482040405
     },
     "generated_files": [
         "gen_1.wav",

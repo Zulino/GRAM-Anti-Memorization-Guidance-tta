@@ -1,7 +1,7 @@
 {
     "experiment_info": {
-        "timestamp": "2026-02-11 11:28:20",
-        "subdir": "30",
+        "timestamp": "2026-05-29 15:31:44",
+        "subdir": "gram_no_filt_250_0.6_0.4/30",
         "target_id": "4481",
         "prompt": "Subtractive synthesis resonant sweep multisamples created with subsynth and converted to AIFF for applet recognition.",
         "num_generations": 100,
@@ -30,13 +30,15 @@
         ]
     },
     "metrics": {
-        "global_avg_similarity": 0.08685774356126785,
-        "avg_nearest_neighbor_similarity": 0.6082229614257812,
-        "avg_target_similarity": 0.42040953040122986,
-        "max_target_similarity": 0.7122423648834229,
-        "avg_prompt_adherence": 0.24409951269626617,
-        "intra_list_diversity": 0.37769585847854614,
-        "total_variance": 0.3776959478855133
+        "global_avg_similarity": 0.1654461771249771,
+        "avg_nearest_neighbor_similarity": 0.6453219652175903,
+        "avg_target_similarity": 0.46710914373397827,
+        "avg_nn_ratio": 1.0275144577026367,
+        "avg_cluster_log_rge": -0.7765507733821869,
+        "max_target_similarity": 0.6848596334457397,
+        "avg_prompt_adherence": 0.2970207631587982,
+        "intra_list_diversity": 0.3554035425186157,
+        "total_variance": 0.3554035723209381
     },
     "generated_files": [
         "gen_1.wav",
