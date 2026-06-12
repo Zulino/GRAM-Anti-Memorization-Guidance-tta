@@ -4,7 +4,7 @@
 <div align="center">
   <img src="media/gram_full.png" alt="GRAM-AMG Cover">
 </div>
-Implementing Volumetric Anti-Memorization Guidance (AMG) with Latent Spectral Filtering for Audio Diffusion Models. This work builds upon the foundational research by Messina et al. in *[Mitigating data replication in text-to-audio generative diffusion models through anti-memorization guidance](https://arxiv.org/abs/2509.14934)* and extends Stability AI's Stable Audio Open 1.0 with advanced guidance mechanisms.
+Implementing Volumetric Anti-Memorization Guidance (AMG) with Latent Spectral Filtering for Audio Diffusion Models. This work builds upon the foundational research by Messina et al. in [Mitigating data replication in text-to-audio generative diffusion models through anti-memorization guidance](https://arxiv.org/abs/2509.14934) and extends Stability AI's Stable Audio Open 1.0 with advanced guidance mechanisms.
 
 The main entry point for generation is `amg_infer.py`, while `generate_random_dataset_parallel.py` provides parallel batch generation capabilities for experimental evaluation.
 
