@@ -167,9 +167,22 @@ huggingface_token.txt
 *.pdf
 *.log
 
+# Audio and media files
+*.mp3
+*.flac
+*.ogg
+*.wav
+*.pt
+
+# Exception: cover image in media directory
+!media/gram_amg.png
+
 # Debug directories
 debug_run_*/
 debug_baseline_outputs/
+
+# Personal/agent directories
+.continue/
 
 # Generated data / output directories (large files)
 gram150_full_clusters_6k/
@@ -178,6 +191,7 @@ random_gen_parallel/
 batch_gen_parallel/
 soundDataset/
 rescale_studies/
+ID_1921/
 random_gen/
 dynamic_test/
 logs/
@@ -229,6 +243,8 @@ evaluation_summary.json
 generation_manifest.json
 aggregated_results.json
 aggregated_by_config.json
+fad_rescale_all.json
+fad_rescale_clap_laion_audio.json
 
 # Plotting scripts (generate graphics output)
 plot_*.py
@@ -240,6 +256,17 @@ audio_diff_analyzer.py
 batch_evaluation.py
 generate_mel_spectrograms.py
 generate_random_dataset_parallel.py
+
+# Scripts to ignore
+calc_spectral_metrics.py
+compare_tensors.py
+detect_noise_audio.py
+evaluate_fad_rescale.py
+evaluate_prompt_adherence.py
+evaluate_random_gen.py
+evaluate_similarity.py
+find_match.py
+mert_method.py
 
 # Audio and media files
 *.mp3
