@@ -176,6 +176,7 @@ huggingface_token.txt
 
 # Exception: cover image in media directory
 !media/gram_amg.png
+!media/gram_full.png
 
 # Debug directories
 debug_run_*/
