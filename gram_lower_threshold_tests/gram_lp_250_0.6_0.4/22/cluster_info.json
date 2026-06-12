@@ -1,7 +1,0 @@
-{
-  "cluster_id": 22,
-  "representative_id": "3807",
-  "prompt": "Online text to speech of German translation of some of my lyrics. Female voice originally in 16k format, upsampled to 22k for upload.",
-  "duration": 9.652244897959184,
-  "batch_size": 100
-}

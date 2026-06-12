@@ -1,7 +1,0 @@
-{
-  "cluster_id": 45,
-  "representative_id": "5301",
-  "prompt": "Multisamples created with SubSynth 6 octaves for each note- no sharps or flats. Didn't catch the fact that the B notes are in 22k, sorry. Batch processed in cooledit to convert to aiff. Applet not recognizing my wav's today. I'll be more careful next time. ",
-  "duration": 0.17299319727891158,
-  "batch_size": 100
-}

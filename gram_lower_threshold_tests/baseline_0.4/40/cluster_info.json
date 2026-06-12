@@ -1,7 +1,0 @@
-{
-  "cluster_id": 40,
-  "representative_id": "4805",
-  "prompt": "This sample is part of the \"PPG\r\nMULTISAMPLE 009 Noisy Digital Octaver\" sample pack. It is a digital\r\nsound effect that has some repetitions with a pitch that is one octave\r\nhigher. In the sample pack there are 16 samples evenly spread across 5\r\noctaves (C1 till C6). The note in the sample name (C, E or G#) does\r\nindicate the pitch of the sound but the key on my keyboard. The sound\r\nwas created on the PPG VSTi. After that normalising and fades where applied within Cubase SX.",
-  "duration": 3.2,
-  "batch_size": 100
-}
